@@ -24,12 +24,14 @@ python3 scripts/install.py
 
 | 阶段 | 验收目标 | 当前状态 |
 | --- | --- | --- |
-| v0 | 通用发现、总结、复用；真实 Web POST 写入并读回；必要预请求示例 | 进行中；本地草稿不算远端写验收 |
+| v0 | 通用发现、总结、复用；真实 Web POST 写入并读回；必要预请求示例 | 收藏 POST → 读回 → 取消 POST → 确认恢复已实测；已保存换票及写入子能力 |
 | v1 | 本人微信／企微消息接收、发送；公众号文章读取 | 文章可用；消息待实测 |
 | v2 | 微信内链接与深链读取 | 待实现；scheme 以实际客户端为准 |
 | v3 | 企微服务与学校 Web 替代映射；无替代时处理本人 OAuth 授权 | 学校已有部分替代；完整映射和 OAuth 待验收 |
 
 不把 HTTP 200、离线测试、UI 截图或已写文档当作真实业务成功；每个能力记录自己的验证范围。真实订场、消息发送等操作仍按用户当次授权的目标执行。学校夜间失败须区分网络、认证、权限和业务开放时间。
+
+v0 示例：[服务收藏](skills/ncut-web-api/references/capabilities/hall/service-favorite.md)、[写入预请求与读回](skills/ncut-web-api/references/workflows/web-write.md)。`favorite verify` 真实改变本人收藏并恢复，必须在获准验证时使用 `--allow-write`；不会订场或提交申请。
 
 ## 开发
 

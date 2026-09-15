@@ -80,7 +80,7 @@ async function main(){
     try{existing=await connection(profile);}catch{}
     if(existing){
       await restoreCookies(existing,path.join(state,'accounts',account+'.json'));
-      await existing.call('Target.createTarget',{url:service.entry});existing.close();
+      await existing.call('Target.createTarget',{url:service.login_entry||service.entry});existing.close();
       report({ok:true,account,service:service.id,browser_opened:true,reused_profile:true});return;
     }
     if(!options.includes('--headless')&&!process.env.DISPLAY&&!process.env.WAYLAND_DISPLAY)throw Error('FIRST_LOGIN_NEEDS_VISIBLE_BROWSER_OR_EXISTING_SESSION');
@@ -101,7 +101,7 @@ async function main(){
     try{
       await restoreCookies(c,path.join(state,'accounts',account+'.json'),{overwrite:true});
       const {targetInfos}=await c.call('Target.getTargets');
-      await c.call('Target.createTarget',{url:service.entry});
+      await c.call('Target.createTarget',{url:service.login_entry||service.entry});
       for(const target of targetInfos.filter(t=>t.type==='page'&&t.url==='about:blank'))
         await c.call('Target.closeTarget',{targetId:target.targetId});
     }finally{c.close();}

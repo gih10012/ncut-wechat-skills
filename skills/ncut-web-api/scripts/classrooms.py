@@ -1,6 +1,6 @@
 """Empty classroom query: current form, readonly API, local filtering. Stdlib only."""
 import datetime as dt
-from http.cookiejar import Cookie, CookieJar, DefaultCookiePolicy
+from session_http import cookie_jar, merged_state
 import json
 from pathlib import Path
 import re
@@ -91,29 +91,6 @@ def free_rooms(data, params, date, query):
         if query and query.casefold() not in room['jsmc'].casefold(): continue
         found.append({'id':room['jsid'], 'name':room['jsmc'], 'seats':seats})
     return sorted(found, key=lambda r:r['name'])
-
-
-def cookie_jar(state):
-    jar = CookieJar(policy=DefaultCookiePolicy(strict_ns_domain=DefaultCookiePolicy.DomainStrictNonDomain))
-    for c in state.get('cookies', []):
-        domain = c['domain']; expires = c.get('expires', -1); rest = {}
-        if c.get('httpOnly'): rest['HttpOnly'] = None
-        if c.get('sameSite'): rest['SameSite'] = c['sameSite']
-        jar.set_cookie(Cookie(0, c['name'], c['value'], None, False, domain, domain.startswith('.'), domain.startswith('.'), c.get('path','/'), True, c.get('secure',False), int(expires) if expires and expires > 0 else None, not expires or expires <= 0, None, None, rest))
-    return jar
-
-
-def merged_state(state, jar):
-    old = {(c['domain'],c.get('path','/'),c['name']):c for c in state.get('cookies',[])}
-    cookies = []
-    for c in jar:
-        if c.is_expired() or c.value is None: continue
-        item = dict(old.get((c.domain,c.path,c.name), {}))
-        item.update(name=c.name,value=c.value,domain=c.domain,path=c.path,secure=c.secure,expires=c.expires if c.expires is not None else -1,httpOnly=c.has_nonstandard_attr('HttpOnly'))
-        item.pop('sameSite',None)
-        if c.get_nonstandard_attr('SameSite'): item['sameSite'] = c.get_nonstandard_attr('SameSite').capitalize()
-        cookies.append(item)
-    return {**state, 'cookies':cookies}
 
 
 def classrooms(args):

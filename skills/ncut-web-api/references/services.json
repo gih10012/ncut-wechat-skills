@@ -12,7 +12,8 @@
         "https://service.ncut.edu.cn"
       ],
       "auth": "Public directory; CAS for personal services",
-      "evidence_status": "observed"
+      "evidence_status": "observed",
+      "login_entry": "https://sso.ncut.edu.cn/sso/login?service=https%3A%2F%2Fservice.ncut.edu.cn%2FEIP%2Fcaslogin.jsp"
     },
     {
       "id": "ywtb",

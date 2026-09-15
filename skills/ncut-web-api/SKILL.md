@@ -1,11 +1,13 @@
 ---
 name: ncut-web-api
-description: 用本人登录态直接调用北方工业大学学校网页/API，查询学习和校园信息、办理已授权业务；按需复用已验证接口与子流程，并启动或续接学校登录。适用于实际业务查询办理，不用于课程答疑或校园网站开发。
+description: 用本人登录态查询和办理北方工业大学学习/校园业务；命中已验证 API 就直接调用，缺项时独立探索页面、源码或请求，验证后生成可复用子能力，并处理学校登录续接。适用于实际业务与新能力接入。
 ---
 
 # 北方工大学校 Web/API
 
 沿用 EaseCation web-api：命中契约直接请求，缺项才局部发现。默认忽略前端；只有必要登录和接口发现才用浏览器。所有命令使用本 skill 的 `scripts/ncut.py` 绝对路径，下文记为 `$NCUT`。
+
+此 skill 是可扩展的工作方法，下列命令是已验证示例，不是能力边界。新上下文从本文件和服务注册表开始，不依赖以前的对话、抓包文件或旧 crawler 项目；用户给出业务目标后，先自行定位入口和接口，不要求用户先提供 API。接口事实缺失时完成探索、实测、总结整个闭环。
 
 ## 日常调用
 
@@ -20,6 +22,7 @@ python3 "$NCUT" timetable --account me --date YYYY-MM-DD
 python3 "$NCUT" classrooms --account me --date YYYY-MM-DD --start 18:00 --end 20:00
 python3 "$NCUT" reservation calendar --account me --site 596 --date YYYY-MM-DD
 python3 "$NCUT" reservation rules --account me --site 596
+python3 "$NCUT" favorite show --account me --query '完整服务名称'
 python3 "$NCUT" catalog --query '邮箱' --limit 8
 python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' --key UNIQUE_KEY --validation-only
 ```
@@ -32,6 +35,8 @@ python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' -
 
 会话在 `~/.local/state/ncut-web-api/accounts/`，目录 0700、文件 0600；普通请求只需 Python 标准库，无加密卷、容器或常驻服务。Cookie 按 domain/path/expiry，认证头按精确 origin；预约保留捕获时的 User-Agent。私有结果不进知识库。
 
+服务大厅 `login --service hall` 或 favorite 命令会先尝试保存的 SSO 自动换票；服务收藏已验证真实 POST 和读回恢复。已授权写入才使用 `favorite set/verify --allow-write`，见对应能力契约。
+
 学校可能 23:00 后不可访问：按 Asia/Shanghai 记录失败时间，一次有超时的请求后区分网络、登录和权限问题；没有新证据不循环重试，也不猜恢复时间。只读 POST 按 `effect: read` 调用；真正写入须符合用户授权，核对目标和当前契约，非幂等失败先查结果。
 
 ## 子能力复用
@@ -39,3 +44,5 @@ python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' -
 [services.json](references/services.json) 登记精确域名与身份；`capabilities/<service>/*.md` 保存可执行请求契约；确需多步才链接 `workflows/*.md`。按 [API 契约格式](references/api-contract.md) 记录请求、参数来源、认证、结果映射、业务成功和失败处理。业务流程不记录点哪、等几秒；登录 UI 细节留在认证脚本/文档，正常查询不加载。
 
 不预建空能力，不为每个接口创建顶层 skill；实际验证新能力或契约改变时才窄幅更新。真实可用范围见 [验收记录](references/verification.md)。
+
+用户所说的“子 skill”对应这里的能力分片和必要的 workflow：以意图词可检索，记清请求与参数来源；新的顶层 skill 仅用于具有独立触发边界的业务域。写请求的预请求、令牌、提交和读回参考 [写入子能力示例](references/workflows/web-write.md)。

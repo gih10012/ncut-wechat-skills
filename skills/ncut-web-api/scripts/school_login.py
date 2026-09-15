@@ -21,6 +21,9 @@ def check(account, service):
     if not ncut.account_path(account).exists():
         return {'ok': False, 'code': 'AUTH_REQUIRED'}
     session = ncut.load_session(account)
+    if service == 'hall':
+        from hall import ensure_login
+        return ensure_login(account)
     if service in ('jwxt', 'jwxtbk'):
         from academic import parse_setup
         info, raw = ncut.fetch('https://jwxtbk.ncut.edu.cn/jsxsd/xskb/xskb_list.do', state=session)

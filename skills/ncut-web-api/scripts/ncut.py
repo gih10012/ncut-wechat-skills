@@ -219,6 +219,7 @@ def main():
     q = sub.add_parser('login'); q.add_argument('operation', nargs='?', default='start', choices=['start','finish','status'])
     q.add_argument('--account', default='me'); q.add_argument('--service'); q.add_argument('--open', action='store_true', help='Open the existing login profile without checking saved HTTP credentials')
     q = sub.add_parser('catalog'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--cached', action='store_true')
+    q = sub.add_parser('favorite'); q.add_argument('operation',choices=['show','set','verify']); q.add_argument('--account',required=True); q.add_argument('--query',required=True); q.add_argument('--value',choices=['yes','no']); q.add_argument('--allow-write',action='store_true')
     q = sub.add_parser('timetable'); q.add_argument('--account', required=True); q.add_argument('--term'); q.add_argument('--week', choices=['all','current'], default='all'); q.add_argument('--date'); q.add_argument('--output')
     q = sub.add_parser('classrooms'); q.add_argument('--account', required=True); q.add_argument('--date', required=True); q.add_argument('--start', required=True); q.add_argument('--end', required=True)
     q.add_argument('--campus', default='校本部'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--output')
@@ -240,6 +241,9 @@ def main():
         a = qs.add_parser(name); a.add_argument('--account', required=True)
         if name == 'import': a.add_argument('--file', required=True)
     args = p.parse_args()
+    if args.cmd == 'favorite':
+        from hall import favorite
+        favorite(args); return
     if args.cmd == 'login':
         from school_login import main as login_main
         login_main(args); return
