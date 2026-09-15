@@ -1,0 +1,3 @@
+interface:
+  display_name: "北方工大学校服务"
+  short_description: "按已验证接口读取北方工大学习与校园服务，按需复用登录态和子流程"

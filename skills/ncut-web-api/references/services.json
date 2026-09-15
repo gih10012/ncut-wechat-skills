@@ -1,0 +1,141 @@
+{
+  "services": [
+    {
+      "id": "hall",
+      "aliases": [
+        "服务大厅",
+        "办事大厅",
+        "旧大厅"
+      ],
+      "entry": "https://service.ncut.edu.cn/EIP/nonlogin/elobby/service/more.htm",
+      "origins": [
+        "https://service.ncut.edu.cn"
+      ],
+      "auth": "Public directory; CAS for personal services",
+      "evidence_status": "observed"
+    },
+    {
+      "id": "ywtb",
+      "aliases": [
+        "一网通办",
+        "门户"
+      ],
+      "entry": "https://ywtb.ncut.edu.cn/",
+      "origins": [
+        "https://ywtb.ncut.edu.cn"
+      ],
+      "auth": "CAS / embedded-client OAuth; verify actual login chain",
+      "evidence_status": "observed_redirect"
+    },
+    {
+      "id": "jwxt",
+      "aliases": [
+        "教务",
+        "课表",
+        "成绩",
+        "考试"
+      ],
+      "entry": "https://jwxt.ncut.edu.cn/",
+      "origins": [
+        "https://jwxt.ncut.edu.cn"
+      ],
+      "auth": "Historical frontend config requires CAS",
+      "evidence_status": "historical"
+    },
+    {
+      "id": "mobile-jw",
+      "aliases": [
+        "移动教务",
+        "研究生移动教务",
+        "mjwxt"
+      ],
+      "entry": "https://mjwxt.ncut.edu.cn/yjs-dist/#/moreMenu",
+      "origins": [
+        "https://mjwxt.ncut.edu.cn"
+      ],
+      "auth": "Historical callback token -> sessionStorage.Token; not a reusable authenticated URL",
+      "evidence_status": "historical"
+    },
+    {
+      "id": "sso",
+      "aliases": [
+        "统一认证",
+        "学校登录"
+      ],
+      "entry": "https://sso.ncut.edu.cn/sso/login",
+      "origins": [
+        "https://sso.ncut.edu.cn"
+      ],
+      "auth": "CAS; historical password acceptance followed by SMS MFA",
+      "evidence_status": "historical"
+    },
+    {
+      "id": "webvpn",
+      "aliases": [
+        "VPN",
+        "校外访问"
+      ],
+      "entry": "https://webvpn.ncut.edu.cn/",
+      "origins": [
+        "https://webvpn.ncut.edu.cn"
+      ],
+      "auth": "CAS / WeCom; original internal target must be observed",
+      "evidence_status": "historical"
+    },
+    {
+      "id": "mail",
+      "aliases": [
+        "学校邮箱",
+        "邮箱"
+      ],
+      "entry": "https://mail.ncut.edu.cn/",
+      "origins": [
+        "https://mail.ncut.edu.cn"
+      ],
+      "auth": "Independent Coremail login; do not assume school password",
+      "evidence_status": "historical"
+    },
+    {
+      "id": "ncut",
+      "aliases": [
+        "学校官网",
+        "学校通知"
+      ],
+      "entry": "https://www.ncut.edu.cn/",
+      "origins": [
+        "https://www.ncut.edu.cn"
+      ],
+      "auth": "Public pages",
+      "evidence_status": "historical"
+    },
+    {
+      "id": "workflow",
+      "aliases": [
+        "预约",
+        "订场",
+        "羽毛球",
+        "场地预约"
+      ],
+      "entry": "https://workflow.ncut.edu.cn/reservation/fe/site/reservationInfo?id=596&platform_id=24",
+      "origins": [
+        "https://workflow.ncut.edu.cn"
+      ],
+      "auth": "CAS from service hall; own workflow session; captcha required for booking",
+      "evidence_status": "source_verified",
+      "source": "~/ncut-service-crawler/src/web-app.js queryTargets/bookSlot"
+    },
+    {
+      "id": "jwxtbk",
+      "aliases": [
+        "本科教务",
+        "本科课表"
+      ],
+      "entry": "https://jwxtbk.ncut.edu.cn/",
+      "origins": [
+        "https://jwxtbk.ncut.edu.cn"
+      ],
+      "auth": "Observed jwxt pageHome -> POST /jwxtpt/v1/loginController/jwToken -> jwxtbk/Logon.do",
+      "evidence_status": "observed_login_handoff"
+    }
+  ]
+}

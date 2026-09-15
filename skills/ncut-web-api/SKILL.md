@@ -1,0 +1,41 @@
+---
+name: ncut-web-api
+description: 用本人登录态直接调用北方工业大学学校网页/API，查询学习和校园信息、办理已授权业务；按需复用已验证接口与子流程，并启动或续接学校登录。适用于实际业务查询办理，不用于课程答疑或校园网站开发。
+---
+
+# 北方工大学校 Web/API
+
+沿用 EaseCation web-api：命中契约直接请求，缺项才局部发现。默认忽略前端；只有必要登录和接口发现才用浏览器。所有命令使用本 skill 的 `scripts/ncut.py` 绝对路径，下文记为 `$NCUT`。
+
+## 日常调用
+
+1. 常用任务直接运行下列命令。其他需求先 `python3 "$NCUT" knowledge --query '用户需求'`；只回传最多 3 个能力的命令、接口、验证状态和契约路径，不自动展开参考文件。返回的 `command` 是传给脚本的参数数组，替换其中占位符，不新写临时爬虫。
+2. `runtime_verified` 命中就执行，正常响应即结束。不预查登录、不抓 JS、不读全目录、不更新未变的知识。要扩展参数或修接口时才读匹配文件，或按能力 ID `knowledge --query ID --details`。
+3. 没命中先定位具体业务。办理入口用 `catalog --query '业务词'`；缺接口才按 [局部发现](references/workflows/discover-capability.md) 查最多两个相关资源。只记录实际证据；目录、源码、历史数据不能冒充本人实时业务成功。
+4. 企微/微信里的学校链接仍按学校业务 API 查询；仅该服务要求客户端即时身份时处理这一步，不自动接入整个客户端或小程序平台。
+
+```bash
+python3 "$NCUT" timetable --account me --week current
+python3 "$NCUT" timetable --account me --date YYYY-MM-DD
+python3 "$NCUT" classrooms --account me --date YYYY-MM-DD --start 18:00 --end 20:00
+python3 "$NCUT" reservation calendar --account me --site 596 --date YYYY-MM-DD
+python3 "$NCUT" reservation rules --account me --site 596
+python3 "$NCUT" catalog --query '邮箱' --limit 8
+python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' --key UNIQUE_KEY --validation-only
+```
+
+课表和空教室查询正常各两次 HTTP；直接解析学校响应，不启动浏览器渲染。空教室支持 `--query 励学221`、`--campus 校本部`、`--limit 8`，先完整筛选所有相交时段，再限制输出条数；首次自动使用本科会话换取各类课表会话。空闲不代表本人有借用权限。羽毛球草稿仅是本机写入，**没有学校写接口或定时抢场执行器的生产验收**。
+
+## 登录与失败
+
+用户说“登录学校/教务”或个人接口返回 `AUTH_REQUIRED` 时运行 `login --service 教务`，预约用 `--service 预约`；本人完成后 `login finish`。目标服务保存在本机，不依赖旧会话。打开浏览器会先恢复已保存的 Cookie；先续接验证，只有确认仍需要本人认证才请用户登录。`FORBIDDEN` 是业务权限不足，不重新登录。仅登录异常时读 [认证子流程](references/workflows/session.md)。
+
+会话在 `~/.local/state/ncut-web-api/accounts/`，目录 0700、文件 0600；普通请求只需 Python 标准库，无加密卷、容器或常驻服务。Cookie 按 domain/path/expiry，认证头按精确 origin；预约保留捕获时的 User-Agent。私有结果不进知识库。
+
+学校可能 23:00 后不可访问：按 Asia/Shanghai 记录失败时间，一次有超时的请求后区分网络、登录和权限问题；没有新证据不循环重试，也不猜恢复时间。只读 POST 按 `effect: read` 调用；真正写入须符合用户授权，核对目标和当前契约，非幂等失败先查结果。
+
+## 子能力复用
+
+[services.json](references/services.json) 登记精确域名与身份；`capabilities/<service>/*.md` 保存可执行请求契约；确需多步才链接 `workflows/*.md`。按 [API 契约格式](references/api-contract.md) 记录请求、参数来源、认证、结果映射、业务成功和失败处理。业务流程不记录点哪、等几秒；登录 UI 细节留在认证脚本/文档，正常查询不加载。
+
+不预建空能力，不为每个接口创建顶层 skill；实际验证新能力或契约改变时才窄幅更新。真实可用范围见 [验收记录](references/verification.md)。

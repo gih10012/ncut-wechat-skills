@@ -1,0 +1,43 @@
+{
+  "services": [
+    {
+      "id": "articles",
+      "aliases": [
+        "公众号文章",
+        "公众号",
+        "文章链接"
+      ],
+      "origins": [
+        "https://mp.weixin.qq.com"
+      ],
+      "entry": "https://mp.weixin.qq.com/",
+      "auth": "Public link or browser verification; not a personal subscription inbox",
+      "status": "runtime_verified"
+    },
+    {
+      "id": "wechat",
+      "aliases": [
+        "微信",
+        "个人微信"
+      ],
+      "origins": [],
+      "entry": null,
+      "transport": "no verified personal message API",
+      "status": "not_connected",
+      "verified_scope": "native message API unverified; business web sessions are independent"
+    },
+    {
+      "id": "wecom",
+      "aliases": [
+        "企微",
+        "企业微信",
+        "学校企微"
+      ],
+      "origins": [],
+      "entry": null,
+      "transport": "no verified personal message API",
+      "status": "not_connected",
+      "verified_scope": "native message API unverified; business web sessions are independent"
+    }
+  ]
+}

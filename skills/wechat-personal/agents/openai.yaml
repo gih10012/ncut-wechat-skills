@@ -1,0 +1,3 @@
+interface:
+  display_name: "微信与企微业务接口"
+  short_description: "直接读取已验证业务网页和公众号文章；原生消息接口缺项明确返回"
