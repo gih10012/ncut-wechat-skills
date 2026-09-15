@@ -24,6 +24,7 @@ python3 "$NCUT" reservation calendar --account me --site 596 --date YYYY-MM-DD
 python3 "$NCUT" reservation rules --account me --site 596
 python3 "$NCUT" favorite show --account me --query '完整服务名称'
 python3 "$NCUT" catalog --query '邮箱' --limit 8
+python3 "$NCUT" catalog --alternatives --query '邮箱' --limit 8
 python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' --key UNIQUE_KEY --validation-only
 ```
 

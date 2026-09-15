@@ -2,6 +2,8 @@
 
 已有服务：知识命中 → 用已保存的该域会话发请求 → 验证业务字段 → 返回结果。学校业务走 ncut-web-api；其他域登记到本 skill 的 services.json 和 capabilities/<service>。
 
+找学校 Web 替代时先运行配套 `ncut.py catalog --alternatives --query '业务词'`。它直接从目录同一 action 的 Web/mobile 字段配对；再验证本人权限和业务对象是否一致。dynamic/fresh_entry_needed 不是没有网页版的证据。该目录只是已知学校服务范围，不能当作完整企微工作台清单。
+
 首次缺项：
 
 1. 从真实链接/消息卡片/已观察的入口确定业务域；页面、工具箱和小程序只是入口，不猜 OAuth 参数或域名。

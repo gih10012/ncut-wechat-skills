@@ -173,15 +173,19 @@ def fetch(url, *, method='GET', data=None, content_type=None, state=None, expect
     return info, raw
 
 
-def parse_catalog(raw):
+def catalog_rows(raw):
     candidates = []
     for encoded in re.findall(r"vjson\s*=\s*mini\.decode\('(.*?)'\)", raw.decode('utf-8'), re.S):
         try: rows = json.loads(encoded)
         except ValueError: continue
         if isinstance(rows, list) and rows and all(isinstance(v, dict) and 'name' in v and 'id' in v for v in rows): candidates.append(rows)
     if not candidates: raise ValueError('CATALOG_SCHEMA_CHANGED: inspect current directory source')
+    return max(candidates, key=len)
+
+
+def parse_catalog(raw):
     result = []
-    for row in max(candidates, key=len):
+    for row in catalog_rows(raw):
         entries = []
         for group in row.get('service', []):
             for entry in group.get('blArr', []):
@@ -218,7 +222,7 @@ def main():
     q = sub.add_parser('knowledge'); q.add_argument('--query', required=True); q.add_argument('--details', action='store_true', help='Include the matched contract and workflow bodies')
     q = sub.add_parser('login'); q.add_argument('operation', nargs='?', default='start', choices=['start','finish','status'])
     q.add_argument('--account', default='me'); q.add_argument('--service'); q.add_argument('--open', action='store_true', help='Open the existing login profile without checking saved HTTP credentials')
-    q = sub.add_parser('catalog'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--cached', action='store_true')
+    q = sub.add_parser('catalog'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--cached', action='store_true'); q.add_argument('--alternatives',action='store_true')
     q = sub.add_parser('favorite'); q.add_argument('operation',choices=['show','set','verify']); q.add_argument('--account',required=True); q.add_argument('--query',required=True); q.add_argument('--value',choices=['yes','no']); q.add_argument('--allow-write',action='store_true')
     q = sub.add_parser('timetable'); q.add_argument('--account', required=True); q.add_argument('--term'); q.add_argument('--week', choices=['all','current'], default='all'); q.add_argument('--date'); q.add_argument('--output')
     q = sub.add_parser('classrooms'); q.add_argument('--account', required=True); q.add_argument('--date', required=True); q.add_argument('--start', required=True); q.add_argument('--end', required=True)
@@ -284,6 +288,9 @@ def main():
         private_write(dest, json.dumps({'cookies': cookies, 'headers': headers, 'user_agent':user_agent, 'imported_at': now()}, ensure_ascii=False))
         emit({'ok': True, 'account': args.account, 'cookie_count': len(cookies), 'header_origins': list(headers), 'live_identity_verified': False}); return
     if args.cmd == 'catalog':
+        if args.alternatives:
+            from alternatives import catalog_alternatives
+            catalog_alternatives(args);return
         cache = STATE / 'cache/service-catalog.json'
         if args.cached:
             value = json.loads(cache.read_text()); info = {'ok': True, 'source': 'cached', 'fetched_at': value['verified_at']}; rows = value['services']
