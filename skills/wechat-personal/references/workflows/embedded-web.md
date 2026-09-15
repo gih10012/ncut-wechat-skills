@@ -14,3 +14,9 @@
 可独立复用的业务 Cookie/header 通过 `session import --account ALIAS --file 私有state.json` 保存，格式见 [会话格式](../../../ncut-web-api/references/workflows/session.md)。OAuth code/ticket 和客户端即时凭据不能固定进知识。每次仍需客户端签名的接口明确标注依赖；没有已验证的取得方式就报告这一缺项，不伪造接口或迁移到通用客户端适配。
 
 正常命中不重新打开工作台。403 与登录失效区分；只读 POST 标 read，真正提交按当前用户授权和契约执行，结果不确定先回查。
+
+## 学校移动页的已观察边界
+
+2026-09-16，学校 `/EIP/weixin/weui/cooperate.html` 通过 RequireJS 主模块 `js/cooperate-main` 加载 `native-weixin`；相应 `js/native-weixin.js` 定义 `GET /EIP/weixin/jssdkapi.htm`，query `url` 为当前页面地址。响应 appId/timestamp/nonceStr/signature 交给 wx.config。这是客户端 JS-SDK 签名配置，不能当作本人 OAuth 登录、通用企微 token 或聊天权限；本次仅验证源码契约，没有把签名值写入知识。
+
+同一次验证中，已保存学校 SSO 自动换票后，学生邮箱申请的 Web 入口能够返回“新建事项”页面，未发送申请提交请求；这证明该 Web 入口可以访问，尚未证明移动端字段/权限完全等价。真正只有企微身份可用的业务，仍需从其实际 OAuth 跳转链取得 corp/app、redirect_uri、scope、state 和回调契约；不要将上述 jssdkapi 硬套为 OAuth 接口。

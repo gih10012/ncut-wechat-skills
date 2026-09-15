@@ -152,13 +152,14 @@ def fetch(url, *, method='GET', data=None, content_type=None, state=None, expect
     info = {'ok': 200 <= status < 300, 'status': status, 'url': safe_url(url), 'content_type': ct, 'fetched_at': started}
     if len(raw) > max_bytes: return {**info, 'ok': False, 'code': 'RESPONSE_TOO_LARGE'}, b''
     text = raw.decode(charset, errors='replace'); info['sha256'] = hashlib.sha256(raw).hexdigest()
+    is_document = ct not in ('application/javascript','text/javascript','application/json') and text.lstrip('\ufeff \t\r\n').startswith('<')
     if status in (401, 403): info.update(ok=False, code='AUTH_REQUIRED' if status == 401 else 'FORBIDDEN')
     elif not info['ok']: info['code'] = 'HTTP_ERROR'
-    elif re.search(r'<title>\s*出错页面\s*</title>', text, re.I) and '您没有访问该功能的权限' in text:
+    elif is_document and re.search(r'<title>\s*出错页面\s*</title>', text, re.I) and '您没有访问该功能的权限' in text:
         info.update(ok=False, code='FORBIDDEN')
-    elif up.urlsplit(url).hostname.endswith('.ncut.edu.cn') and re.search(r'''location(?:\.href)?\s*=\s*["']https://sso\.ncut\.edu\.cn/sso/login(?:[?"'])''', text):
+    elif is_document and up.urlsplit(url).hostname.endswith('.ncut.edu.cn') and re.search(r'''location(?:\.href)?\s*=\s*["']https://sso\.ncut\.edu\.cn/sso/login(?:[?"'])''', text):
         info.update(ok=False, code='AUTH_REQUIRED')
-    elif re.search(r'<input[^>]+type=[\"\']password|统一身份认证|短信验证码', text, re.I) and ('<html' in text.lower() or '<form' in text.lower()):
+    elif is_document and re.search(r'<input[^>]+type=[\"\']password|统一身份认证|短信验证码', text, re.I) and ('<html' in text.lower() or '<form' in text.lower()):
         info.update(ok=False, code='AUTH_REQUIRED')
     elif expect == 'json':
         try:

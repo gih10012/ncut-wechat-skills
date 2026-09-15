@@ -62,6 +62,18 @@ class AccessTests(unittest.TestCase):
             result,_=ncut.fetch('https://jwxtbk.ncut.edu.cn/jiaowu/pkgl/jsjy/jsjy_add_new.htmlx')
         self.assertFalse(result['ok']);self.assertEqual(result['code'],'FORBIDDEN')
 
+    def test_authentication_code_in_js_is_source_not_an_expired_session(self):
+        js=b'''function login(){location.href="https://sso.ncut.edu.cn/sso/login?service=example";}'''
+        for kind in ('application/javascript','text/plain'):
+            with patch.object(ncut.ur,'build_opener') as op:
+                op.return_value.open.return_value=Response(js,content_type=kind)
+                result,_=ncut.fetch('https://service.ncut.edu.cn/EIP/weixin/weui/js/cooperate-main.js')
+            self.assertTrue(result['ok'])
+        with patch.object(ncut.ur,'build_opener') as op:
+            op.return_value.open.return_value=Response(b'<script>'+js[17:-1]+b'</script>',content_type='text/html')
+            result,_=ncut.fetch('https://service.ncut.edu.cn/EIP/protected')
+        self.assertEqual(result['code'],'AUTH_REQUIRED')
+
     def test_unknown_method_route_stops_before_network(self):
         argv=['ncut','request','hall','--capability','hall-service-search','--method','DELETE','--path','/EIP/nonlogin/elobby/portal/services/list.htm']
         with patch.object(sys,'argv',argv), patch.object(ncut,'fetch') as network:
