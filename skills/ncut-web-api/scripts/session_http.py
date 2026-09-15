@@ -48,4 +48,3 @@ def merged_state(state, jar):
         if c.get_nonstandard_attr('SameSite'): item['sameSite'] = c.get_nonstandard_attr('SameSite').capitalize()
         cookies.append(item)
     return {**state, 'cookies':cookies}
-

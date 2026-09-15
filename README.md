@@ -33,6 +33,8 @@ python3 scripts/install.py
 
 v0 示例：[服务收藏](skills/ncut-web-api/references/capabilities/hall/service-favorite.md)、[写入预请求与读回](skills/ncut-web-api/references/workflows/web-write.md)。`favorite verify` 真实改变本人收藏并恢复，必须在获准验证时使用 `--allow-write`；不会订场或提交申请。
 
+v1 准备路径：[现有 Linux 微信的一次性密钥读取](skills/wechat-personal/references/workflows/native-linux.md)。该工具需要本人本机授权，只读本人微信进程，匹配数据库 HMAC 后私存密钥；不重登录或改全局 ptrace 设置。当前仅离线检查通过，实际密钥捕获、消息读取和发送仍待验收。
+
 ## 开发
 
 ```bash
