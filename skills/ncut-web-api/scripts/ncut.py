@@ -224,6 +224,7 @@ def main():
     q = sub.add_parser('login'); q.add_argument('operation', nargs='?', default='start', choices=['start','finish','status'])
     q.add_argument('--account', default='me'); q.add_argument('--service'); q.add_argument('--open', action='store_true', help='Open the existing login profile without checking saved HTTP credentials')
     q = sub.add_parser('catalog'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--cached', action='store_true'); q.add_argument('--alternatives',action='store_true')
+    q.add_argument('--resolve',action='store_true'); q.add_argument('--account')
     q = sub.add_parser('favorite'); q.add_argument('operation',choices=['show','set','verify']); q.add_argument('--account',required=True); q.add_argument('--query',required=True); q.add_argument('--value',choices=['yes','no']); q.add_argument('--allow-write',action='store_true')
     q = sub.add_parser('timetable'); q.add_argument('--account', required=True); q.add_argument('--term'); q.add_argument('--week', choices=['all','current'], default='all'); q.add_argument('--date'); q.add_argument('--output')
     q = sub.add_parser('classrooms'); q.add_argument('--account', required=True); q.add_argument('--date', required=True); q.add_argument('--start', required=True); q.add_argument('--end', required=True)
@@ -289,6 +290,11 @@ def main():
         private_write(dest, json.dumps({'cookies': cookies, 'headers': headers, 'user_agent':user_agent, 'imported_at': now()}, ensure_ascii=False))
         emit({'ok': True, 'account': args.account, 'cookie_count': len(cookies), 'header_origins': list(headers), 'live_identity_verified': False}); return
     if args.cmd == 'catalog':
+        if args.resolve:
+            if not args.account or not args.query or args.cached or args.alternatives:
+                raise ValueError('catalog --resolve requires --account and an exact --query; use without --cached/--alternatives')
+            from hall import resolve_entry
+            emit(resolve_entry(args.account,args.query));return
         if args.alternatives:
             from alternatives import catalog_alternatives
             catalog_alternatives(args);return

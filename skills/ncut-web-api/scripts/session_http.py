@@ -6,7 +6,8 @@ import urllib.parse as up
 import ncut
 
 
-def follow_login(url, state, max_hops=6):
+def follow_login(url, state, max_hops=6, *, terminal=None):
+    """terminal is an optional private sink; never include it in emitted results."""
     jar=cookie_jar(state);chain=[]
     for _ in range(max_hops):
         if ncut.origin(url) not in ncut.allowed_origins():
@@ -22,8 +23,11 @@ def follow_login(url, state, max_hops=6):
             location=response.headers.get('Location')
             if 300<=response.status<400 and location:
                 url=up.urljoin(url,location);continue
-            if len(response.read(ncut.MAX_BYTES+1))>ncut.MAX_BYTES:
+            body=response.read(ncut.MAX_BYTES+1)
+            if len(body)>ncut.MAX_BYTES:
                 return {'ok':False,'code':'RESPONSE_TOO_LARGE','chain':chain},state
+            if terminal is not None:
+                terminal.update(url=url,body=body)
             return {'ok':200<=response.status<300,'code':'AUTH_REDIRECTS_FINISHED','chain':chain},merged_state(state,jar)
     return {'ok':False,'code':'AUTH_REDIRECT_LIMIT','chain':chain},state
 

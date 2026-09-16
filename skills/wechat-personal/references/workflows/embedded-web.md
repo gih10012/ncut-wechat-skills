@@ -4,6 +4,8 @@
 
 找学校 Web 替代时先运行配套 `ncut.py catalog --alternatives --query '业务词'`。它直接从目录同一 action 的 Web/mobile 字段配对；再验证本人权限和业务对象是否一致。dynamic/fresh_entry_needed 不是没有网页版的证据。该目录只是已知学校服务范围，不能当作完整企微工作台清单。
 
+动态入口继续用 `ncut.py catalog --resolve --account me --query '完整服务名'`。该流程已实测复用学校SSO打开学生羽毛球预约并取得真实site_id；会话过期先重走该入口，再查询日历。服务器明确返回tip时按权限/业务不可用处理，不要求重复登录。
+
 首次缺项：
 
 1. 从真实链接/消息卡片/已观察的入口确定业务域；页面、工具箱和小程序只是入口，不猜 OAuth 参数或域名。

@@ -43,5 +43,31 @@ class HallTests(unittest.TestCase):
             with self.assertRaises(ValueError):hall.favorite(self.args())
             writes.assert_not_called()
 
+    def test_entry_permission_tip_stops_before_navigation(self):
+        with patch.object(hall,'ensure_login',return_value={'ok':True}), patch.object(hall,'lookup',return_value={'id':'observed'}), patch.object(ncut,'load_session',return_value={}), patch.object(ncut,'fetch',return_value=({'ok':True,'data':{'tip':'Not available to this account'}},b'')), patch.object(hall,'follow_login') as navigate:
+            result=hall.resolve_entry('test','Service')
+        self.assertEqual(result['code'],'SERVICE_UNAVAILABLE')
+        navigate.assert_not_called()
+
+    def test_resolved_entry_keeps_tickets_private_and_checks_actual_site(self):
+        def navigate(url,state,*,terminal):
+            self.assertIn('ticket-secret',url)
+            terminal.update(url='https://workflow.ncut.edu.cn/reservation/fe/site/reservationInfo?id=321&platform_id=24&token=landing-secret',body=b'html')
+            return {'ok':True,'chain':[]},state
+        values=[({'ok':True,'data':{'url':'https://workflow.ncut.edu.cn/reservation/api/url/resource?token=ticket-secret'}},b''),
+                ({'ok':True,'data':{'e':'OK','d':{'id':321,'name':'Test court','config':{'anti_bot':1,'rule':[]}}}},b'')]
+        with tempfile.TemporaryDirectory() as temp, patch.object(ncut,'STATE',Path(temp)), patch.object(hall,'ensure_login',return_value={'ok':True}), patch.object(hall,'lookup',return_value={'id':'observed'}), patch.object(ncut,'load_session',return_value={}), patch.object(ncut,'fetch',side_effect=values), patch.object(hall,'follow_login',side_effect=navigate):
+            result=hall.resolve_entry('test','Service')
+            self.assertTrue(result['business_verified'])
+            self.assertEqual(result['business']['site_id'],'321')
+            self.assertNotIn('secret',json.dumps(result))
+            self.assertIn('ticket-secret',Path(result['private_entry']).read_text())
+
+    def test_unregistered_entry_is_not_opened(self):
+        with patch.object(hall,'ensure_login',return_value={'ok':True}), patch.object(hall,'lookup',return_value={'id':'observed'}), patch.object(ncut,'load_session',return_value={}), patch.object(ncut,'fetch',return_value=({'ok':True,'data':{'url':'https://unknown.example/'}},b'')), patch.object(hall,'follow_login') as navigate:
+            result=hall.resolve_entry('test','Service')
+        self.assertEqual(result['code'],'UNREGISTERED_SERVICE_ENTRY')
+        navigate.assert_not_called()
+
 
 if __name__=='__main__':unittest.main()

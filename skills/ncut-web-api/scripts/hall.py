@@ -10,6 +10,7 @@ LOGIN='/EIP/nonlogin/login/isLogin.htm'
 PAGE='/EIP/nonlogin/elobby/service/more.htm'
 SOURCE='/EIP/resources/js/elobby/elobby.js'
 SEARCH='/EIP/nonlogin/elobby/portal/services/list.htm'
+OPEN='/EIP/nonlogin/serviceHandleCenter/openService.htm'
 
 
 def authenticated(state):
@@ -53,6 +54,49 @@ def verify_source(account):
     for marker in ("'elobby/'+sid+'/fav/yes.htm'","'elobby/'+sid+'/fav/no.htm'","'nonlogin/login/isLogin.htm'"):
         if marker not in text:raise ValueError('HALL_WRITE_SOURCE_CHANGED')
     return info['sha256']
+
+
+def resolve_entry(account, query):
+    """Resolve one actual hall service; tickets stay in private state only."""
+    ready=ensure_login(account)
+    if not ready['ok']:return ready
+    row=lookup(account,query)
+    info,_=ncut.fetch(ORIGIN+OPEN+'?'+up.urlencode({'sid':row['id']}),state=ncut.load_session(account),expect='json')
+    value=info.pop('data',None)
+    if not info['ok']:return info
+    if not isinstance(value,dict):raise ValueError('HALL_ENTRY_SCHEMA_CHANGED')
+    if value.get('needToLogin') in (True,'true',1,'1'):
+        return {'ok':False,'code':'AUTH_REQUIRED','service':query}
+    if value.get('tip'):
+        return {'ok':False,'code':'SERVICE_UNAVAILABLE','service':query,
+                'message':re.sub('<[^>]*>','',str(value['tip']))[:400]}
+    url=value.get('url')
+    if not isinstance(url,str) or not url:raise ValueError('HALL_ENTRY_MISSING')
+    url=up.urljoin(ORIGIN+'/EIP/',url)
+    if ncut.origin(url) not in ncut.allowed_origins():
+        return {'ok':False,'code':'UNREGISTERED_SERVICE_ENTRY','service':query}
+    terminal={}
+    flow,state=follow_login(url,ncut.load_session(account),terminal=terminal)
+    if not flow['ok']:return {**flow,'service':query}
+    ncut.private_write(ncut.account_path(account),json.dumps(state,ensure_ascii=False))
+    landing=terminal['url'];parsed=up.urlsplit(landing);params=up.parse_qs(parsed.query)
+    allowed=('id','platform_id','flowId','flowKey','resType','campusId','buildingId')
+    safe_params={k:v[0] for k,v in params.items() if k in allowed and len(v)==1 and re.fullmatch(r'[A-Za-z0-9_-]{1,100}',v[0])}
+    record=ncut.STATE/'entries'/('hall-'+account+'-'+row['id']+'.json')
+    ncut.private_write(record,json.dumps({'service':query,'entry':url,'landing':landing,'resolved_at':ncut.now()},ensure_ascii=False))
+    result={'ok':True,'service':query,'landing':ncut.safe_url(landing),'parameters':safe_params,
+            'chain':flow['chain'],'business_verified':False,'private_entry':str(record),'resolved_at':ncut.now()}
+    if ncut.origin(landing)=='https://workflow.ncut.edu.cn' and parsed.path=='/reservation/fe/site/reservationInfo':
+        site=safe_params.get('id','')
+        if not re.fullmatch(r'\d+',site):raise ValueError('RESERVATION_ENTRY_ID_MISSING')
+        check,_=ncut.fetch('https://workflow.ncut.edu.cn/reservation/site/resource/detail?'+up.urlencode({'id':site,'collective':'0'}),state=state,expect='json')
+        data=check.pop('data',None)
+        if not check['ok']:return {**result,'ok':False,'code':check.get('code','BUSINESS_CHECK_FAILED')}
+        from reservation import read_rules
+        detail=read_rules(data,site)
+        result.update(business_verified=True,business={'type':'reservation','site_id':site,'name':detail['name']},
+                      next_command=['reservation','calendar','--account',account,'--site',site,'--date','YYYY-MM-DD'])
+    return result
 
 
 def set_favorite(account, service_id, value):
