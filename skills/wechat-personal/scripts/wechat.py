@@ -107,6 +107,9 @@ def client(argv):
 if __name__ == '__main__':
     try:
         if len(sys.argv)>1 and sys.argv[1]=='article': article(sys.argv[2:])
+        elif len(sys.argv)>1 and sys.argv[1]=='native':
+            from native_messages import main
+            access.emit(main(sys.argv[2:]))
         elif len(sys.argv)>1 and sys.argv[1]=='login':
             from personal_login import main
             main(sys.argv[2:], access)

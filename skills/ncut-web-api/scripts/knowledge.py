@@ -21,6 +21,8 @@ def search(root, query, details=False):
     matches = []
     for path in (root / "references/capabilities").glob("**/*.md"):
         meta = metadata(path)
+        if any(term.casefold() in query.casefold() for term in meta.get('exclude_keywords', [])):
+            continue
         terms = [meta.get("id", ""), *meta.get("keywords", [])]
         score = sum(len(t) for t in terms if t and t.casefold() in query.casefold())
         if score: matches.append((score, path, meta))

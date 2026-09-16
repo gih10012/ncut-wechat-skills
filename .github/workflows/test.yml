@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: python3 -m pip install -r skills/wechat-personal/requirements-native.txt
       - run: python3 -m unittest discover -s skills/ncut-web-api/tests
       - run: python3 -m unittest discover -s skills/wechat-personal/tests
       - run: node --test skills/ncut-web-api/tests/test_browser_session.mjs

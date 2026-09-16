@@ -17,7 +17,7 @@ python3 scripts/install.py
 对 Codex 直接说“查本周课表”“找今晚的空教室”“查羽毛球预约规则”，或给出一个新业务目标。没有现成子能力时，skill 应自行从服务注册表、目录、页面/客户端和已观察的请求继续探索，而非要求用户先提供 API。
 
 - [学校 skill](skills/ncut-web-api/SKILL.md)：课表、空教室、预约日历和规则已真实调用验证。
-- [微信／企微 skill](skills/wechat-personal/SKILL.md)：公众号文章文字层已验证；原生消息收发尚未打通。
+- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索和公众号文字层已验证；发送与企微消息待接通。
 - 子能力存放在 `references/capabilities/`；必要的多请求编排存放在 `references/workflows/`。它们是可检索的子 skill，不为每个 endpoint 新建顶层 skill。
 
 ## 版本与验收
@@ -25,7 +25,7 @@ python3 scripts/install.py
 | 阶段 | 验收目标 | 当前状态 |
 | --- | --- | --- |
 | v0 | 通用发现、总结、复用；真实 Web POST 写入并读回；必要预请求示例 | 收藏 POST → 读回 → 取消 POST → 确认恢复已实测；已保存换票及写入子能力 |
-| v1 | 本人微信／企微消息接收、发送；公众号文章读取 | 文章可用；消息待实测 |
+| v1 | 本人微信／企微消息接收、发送；公众号文章读取 | 文章与 Linux 微信本地消息读取可用；微信发送、企微消息待实测 |
 | v2 | 微信内链接与深链读取 | 待实现；scheme 以实际客户端为准 |
 | v3 | 企微服务与学校 Web 替代映射；无替代时处理本人 OAuth 授权 | 学校目录配对已实测（64项中45项含可显示Web入口）；完整企微清单、业务等价性和OAuth待验收 |
 
@@ -33,11 +33,12 @@ python3 scripts/install.py
 
 v0 示例：[服务收藏](skills/ncut-web-api/references/capabilities/hall/service-favorite.md)、[写入预请求与读回](skills/ncut-web-api/references/workflows/web-write.md)。`favorite verify` 真实改变本人收藏并恢复，必须在获准验证时使用 `--allow-write`；不会订场或提交申请。
 
-v1 准备路径：[现有 Linux 微信的一次性密钥读取](skills/wechat-personal/references/workflows/native-linux.md)。该工具需要本人本机授权，只读本人微信进程，匹配数据库 HMAC 后私存密钥；不重登录或改全局 ptrace 设置。当前仅离线检查通过，实际密钥捕获、消息读取和发送仍待验收。
+v1 读取路径：[现有 Linux 微信的一次性密钥读取](skills/wechat-personal/references/workflows/native-linux.md)。该工具需要本人本机授权，只读本人微信进程，匹配数据库 HMAC 后私存密钥；不重登录或改全局 ptrace 设置。16个数据库密钥和实际近期消息读取已验证；后续 `native conversations` / `native messages` 直接调用，普通读取不再需要 sudo。当前仅覆盖本机已同步数据，发送仍待验收。原生读取另需 Python 3.11+、pycryptodome 和系统 libzstd，见该流程。
 
 ## 开发
 
 ```bash
+python3 -m pip install -r skills/wechat-personal/requirements-native.txt
 python3 -m unittest discover -s skills/ncut-web-api/tests
 python3 -m unittest discover -s skills/wechat-personal/tests
 node --test skills/ncut-web-api/tests/test_browser_session.mjs

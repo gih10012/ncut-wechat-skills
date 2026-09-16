@@ -1,6 +1,6 @@
 ---
 name: wechat-personal
-description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；新上下文可从现有客户端、服务入口和请求证据接入新 API 并生成子能力。当前已验证公众号和部分学校 Web，原生消息仍待接通。
+description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；新上下文可从现有客户端、服务入口和请求证据接入新 API 并生成子能力。已验证 Linux 微信本地近期消息、公众号和部分学校 Web；发送与企微消息待接通。
 ---
 
 # 微信 / 企微信息入口
@@ -14,7 +14,8 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 给出公众号链接：`python3 "$WX" article --url '真实链接' --max-chars 6000`。结果仅覆盖页面文字层，图片正文按需读取。
 - 学校信息：直接使用同套 [ncut-web-api](../ncut-web-api/SKILL.md) 的课表、场地余量或对应接口；不先启动微信/企微。
 - 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。命中真实可用契约就 `request`，正常结果即结束；细节仅按能力 ID 加 `--details` 或读对应文件。
-- 原生群消息/私聊：先读取命中能力和 [消息接入](references/workflows/messages.md)，核对当前客户端/会话或可调用接口。现有记录仍为 `not_connected`；接入任务须独立探索并验证收发，不能拿公众号或截图代替。保留手机和 Linux 登录，避免把一次消息请求扩大成容器工程。
+- 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
+- 微信发送、企微消息：仍须按 [消息接入](references/workflows/messages.md) 独立探索并验证，保留手机和 Linux 登录。读取覆盖当前客户端已同步的本地消息，不保证云端完整历史；图片、语音、视频仅标类型。
 
 新内部网页按 [业务 API 接入](references/workflows/embedded-web.md) 处理，确实只有小程序入口时才看 [小程序边界](references/workflows/mini-program.md)。缺项发现限于当前业务请求，不把查询扩大为通用客户端工程。
 

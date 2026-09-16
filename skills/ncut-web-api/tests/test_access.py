@@ -141,13 +141,16 @@ class AccessTests(unittest.TestCase):
             self.assertNotIn('workflow',result['matches'][0])
             self.assertEqual(search(root, '查课表', details=True)['matches'][0]['workflow'], 'secret workflow body')
 
-    def test_message_request_reports_gap_without_selecting_desktop(self):
+    def test_message_request_reuses_native_read_without_selecting_desktop(self):
         root=SCRIPTS.parent.parent/'wechat-personal'
         result=search(root, '查看微信消息')
         self.assertTrue(result['matches'])
-        self.assertEqual({m['status'] for m in result['matches']}, {'not_connected'})
+        self.assertEqual({m['status'] for m in result['matches']}, {'runtime_verified'})
         self.assertTrue(all(m.get('transport') != 'manual-ui' for m in result['matches']))
-        self.assertTrue(all('command' not in m for m in result['matches']))
+        self.assertEqual(result['matches'][0]['command'][:2], ['native','messages'])
+        other=search(root, '查看企业微信消息')
+        self.assertTrue(other['matches'])
+        self.assertTrue(all(m['service']=='wecom' and m['status']=='not_connected' for m in other['matches']))
 
     def test_business_auth_failure_inside_http_200_is_not_success(self):
         with patch.object(ncut.ur,'build_opener') as op:
