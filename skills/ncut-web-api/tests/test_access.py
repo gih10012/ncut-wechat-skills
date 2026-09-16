@@ -62,6 +62,18 @@ class AccessTests(unittest.TestCase):
             result,_=ncut.fetch('https://jwxtbk.ncut.edu.cn/jiaowu/pkgl/jsjy/jsjy_add_new.htmlx')
         self.assertFalse(result['ok']);self.assertEqual(result['code'],'FORBIDDEN')
 
+    def test_mobile_identity_projects_fields_and_rejects_empty_identity(self):
+        argv=['ncut','request','hall','--capability','mobile-identity','--method','POST','--path','/EIP/api/getUserAttributeForMobile.htm','--account','me']
+        cases=[({'userId':'sample','userName':'Example','uuid':'not-needed'},True),
+               ({'userId':'','userName':'Example','uuid':'not-needed'},False)]
+        for value,ok in cases:
+            with patch.object(sys,'argv',argv), patch.object(ncut,'load_session',return_value={}), patch.object(ncut,'fetch',return_value=({'ok':True,'data':value},b'')), contextlib.redirect_stdout(io.StringIO()) as out:
+                ncut.main()
+            result=json.loads(out.getvalue())
+            self.assertEqual(result['ok'],ok)
+            self.assertNotIn('uuid',result['data'])
+            if not ok:self.assertEqual(result['code'],'BUSINESS_RESPONSE_INCOMPLETE')
+
     def test_authentication_code_in_js_is_source_not_an_expired_session(self):
         js=b'''function login(){location.href="https://sso.ncut.edu.cn/sso/login?service=example";}'''
         for kind in ('application/javascript','text/plain'):

@@ -327,6 +327,10 @@ def main():
             if isinstance(value,dict) and fixed_keys.intersection(value):raise ValueError('Body cannot override the action fixed by the capability path')
             content_type = 'application/json'
     info, raw = fetch(url, method=method, data=body, content_type=content_type, state=state, expect=expect, timeout=max(1, min(args.timeout, 20)))
+    if args.cmd == 'request' and info['ok'] and contract.get('required_fields'):
+        value = info.get('data')
+        if not isinstance(value, dict) or any(value.get(k) in (None, '') for k in contract['required_fields']):
+            info.update(ok=False, code='BUSINESS_RESPONSE_INCOMPLETE')
     if args.cmd == 'request' and isinstance(info.get('data'), list):
         rows = info['data']; info['total_received'] = len(rows)
         fields = args.fields.split(',') if args.fields else contract.get('fields')
@@ -339,7 +343,10 @@ def main():
             if isinstance(value, dict): return {k: bounded(v) for k,v in value.items()}
             if isinstance(value, str) and len(value)>3000: return value[:3000]+'…'
             return value
-        original = info['data']; compact = bounded(original)
+        original = info['data']
+        fields = args.fields.split(',') if args.fields else contract.get('fields')
+        selected = {k: original[k] for k in fields if k in original} if fields else original
+        compact = bounded(selected)
         info['output_truncated'] = compact != original; info['data'] = compact
     if args.cmd == 'discover' and info['ok']:
         parser = Links(); parser.feed(raw.decode('utf-8', errors='replace'))

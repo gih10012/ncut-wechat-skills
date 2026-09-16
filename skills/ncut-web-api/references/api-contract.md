@@ -7,6 +7,7 @@
 - `transport`：http、auth、local、manual-ui 或 unavailable。截图/本机草稿不计入业务 API 成功。
 - `command`：传给本 skill 脚本的参数数组；只用已存在命令，占位参数在 note 中解释。`note` 保留一两句决定调用行为的信息。
 - `requests`：已观察的精确 method/path/effect/expect，身份要求可写 auth；供 request 校验。带动态路径的专用适配器在正文写实际 URL 来源，不把路径占位符登记为已验证路由。
+- `requests[].fields` 可投影对象顶层字段或列表行字段；`required_fields` 要求对象顶层指定字段存在且不为 null/空字符串。其他业务成功条件仍按契约判断。
 - `workflow`：确需多步时链接一个子流程；默认检索只返回路径。
 
 正文/子流程按下列顺序写，避免复制前端操作：

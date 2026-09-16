@@ -19,4 +19,6 @@
 
 2026-09-16，学校 `/EIP/weixin/weui/cooperate.html` 通过 RequireJS 主模块 `js/cooperate-main` 加载 `native-weixin`；相应 `js/native-weixin.js` 定义 `GET /EIP/weixin/jssdkapi.htm`，query `url` 为当前页面地址。响应 appId/timestamp/nonceStr/signature 交给 wx.config。这是客户端 JS-SDK 签名配置，不能当作本人 OAuth 登录、通用企微 token 或聊天权限；本次仅验证源码契约，没有把签名值写入知识。
 
-同一次验证中，已保存学校 SSO 自动换票后，学生邮箱申请的 Web 入口能够返回“新建事项”页面，未发送申请提交请求；这证明该 Web 入口可以访问，尚未证明移动端字段/权限完全等价。真正只有企微身份可用的业务，仍需从其实际 OAuth 跳转链取得 corp/app、redirect_uri、scope、state 和回调契约；不要将上述 jssdkapi 硬套为 OAuth 接口。
+同一次验证中，已保存学校 SSO 自动换票后，学生邮箱申请的 Web 入口能够返回“新建事项”页面，未发送申请提交请求；这证明该 Web 入口可以访问，尚未证明移动端字段/权限完全等价。
+
+后续2026-09-16实测：大厅移动页 `POST /EIP/api/getUserAttributeForMobile.htm` 可直接复用学校SSO会话返回本人userId/userName，无需企微扫码；已沉淀 [移动身份子能力](../../../ncut-web-api/references/capabilities/hall/mobile-identity.md) 和 [移动路由转Web流程](../../../ncut-web-api/references/workflows/hall-mobile.md)。真正只有企微身份可用的业务，仍需从其实际 OAuth 跳转链取得 corp/app、redirect_uri、scope、state 和回调契约；不要将上述 jssdkapi 硬套为 OAuth 接口。
