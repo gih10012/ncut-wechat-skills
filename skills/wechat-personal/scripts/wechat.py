@@ -110,6 +110,12 @@ if __name__ == '__main__':
         elif len(sys.argv)>1 and sys.argv[1]=='native':
             from native_messages import main
             access.emit(main(sys.argv[2:]))
+        elif len(sys.argv)>1 and sys.argv[1]=='bot':
+            bot_python = Path.home()/'.local/share/ncut-wechat-skills/bot-venv/bin/python'
+            if bot_python.is_file() and Path(sys.prefix) != bot_python.parent.parent:
+                os.execv(str(bot_python), [str(bot_python), str(Path(__file__).resolve()), *sys.argv[1:]])
+            from ilink import main
+            access.emit(main(sys.argv[2:], access))
         elif len(sys.argv)>1 and sys.argv[1]=='login':
             from personal_login import main
             main(sys.argv[2:], access)

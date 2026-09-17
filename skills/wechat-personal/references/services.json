@@ -1,6 +1,17 @@
 {
   "services": [
     {
+      "id": "clawbot",
+      "aliases": ["ClawBot", "微信机器人", "QClaw消息"],
+      "origins": ["https://ilinkai.weixin.qq.com"],
+      "entry": "https://qclaw.qq.com/",
+      "transport": "ilink_https_third_party_sdk",
+      "auth": "Owner QR binding; isolated private bot credentials; actual API baseurl from login response",
+      "status": "partially_verified",
+      "verified_scope": "Third-party SDK QR binding and inbound text verified; personal inbox and WeCom are separate",
+      "capabilities": {"login": "runtime_verified", "updates": "runtime_verified", "send": "not_connected"}
+    },
+    {
       "id": "articles",
       "aliases": [
         "公众号文章",

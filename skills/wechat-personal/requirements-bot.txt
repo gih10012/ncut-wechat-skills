@@ -1,0 +1,1 @@
+wechatbot-sdk==0.3.0

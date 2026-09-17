@@ -2,7 +2,7 @@
 id: read-messages
 service: wechat
 keywords: ["群消息", "微信消息", "聊天记录", "近期消息", "最近消息", "私聊", "读消息"]
-exclude_keywords: ["企微", "企业微信"]
+exclude_keywords: ["企微", "企业微信", "ClawBot", "QClaw", "机器人"]
 status: "runtime_verified"
 evidence: "Linux owner database schema, authenticated pages and committed WAL; actual scoped recent group messages on 2026-09-16"
 runtime_verified_at: "2026-09-16T12:47:47+08:00"

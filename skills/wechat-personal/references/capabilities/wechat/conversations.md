@@ -2,7 +2,7 @@
 id: conversations
 service: wechat
 keywords: ["会话", "未读", "找群", "联系人", "最近聊天", "微信群"]
-exclude_keywords: ["企微", "企业微信"]
+exclude_keywords: ["企微", "企业微信", "ClawBot", "QClaw", "机器人"]
 status: "runtime_verified"
 runtime_verified_at: "2026-09-16T12:47:29+08:00"
 transport: "local_sqlcipher_readonly"

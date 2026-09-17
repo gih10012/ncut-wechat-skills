@@ -1,0 +1,3 @@
+-r requirements-bot.txt
+-r requirements-native.txt
+mcp==1.30.0
