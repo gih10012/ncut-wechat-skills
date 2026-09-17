@@ -48,6 +48,21 @@ class AccessTests(unittest.TestCase):
                 result,_=ncut.fetch('https://jwxt.ncut.edu.cn/',expect='json')
             self.assertFalse(result['ok']);self.assertEqual(result['code'],code)
 
+    def test_known_login_redirect_is_auth_failure_without_following_it(self):
+        for location in ('/Logon.do', '/jsxsd/', 'https://sso.ncut.edu.cn/sso/login?service=private-ticket'):
+            with patch.object(ncut.ur, 'build_opener') as op:
+                op.return_value.open.return_value=Response(status=302,location=location)
+                info,_=ncut.fetch('https://jwxtbk.ncut.edu.cn/jsxsd/kscj/cjcx_query')
+            self.assertEqual(info['code'],'AUTH_REQUIRED')
+            self.assertNotIn('private-ticket',info['location'])
+            self.assertEqual(op.return_value.open.call_count,1)
+
+    def test_root_to_business_home_redirect_is_not_an_auth_failure(self):
+        with patch.object(ncut.ur, 'build_opener') as op:
+            op.return_value.open.return_value=Response(status=302,location='/jsxsd/')
+            info,_=ncut.fetch('https://jwxtbk.ncut.edu.cn/')
+        self.assertEqual(info['code'],'REDIRECT')
+
     def test_read_only_post_uses_contract_without_write_confirmation(self):
         argv=['ncut','request','hall','--capability','hall-service-search','--method','POST','--path','/EIP/nonlogin/elobby/portal/services/list.htm','--form','keyword=邮箱']
         with patch.object(sys,'argv',argv), patch.object(ncut,'fetch',return_value=({'ok':True,'data':[{'id':'1','name':'学生邮箱申请','extra':'unneeded'}]},b'')) as call, contextlib.redirect_stdout(io.StringIO()) as out:
@@ -61,6 +76,13 @@ class AccessTests(unittest.TestCase):
             op.return_value.open.return_value=Response(body,content_type='text/html')
             result,_=ncut.fetch('https://jwxtbk.ncut.edu.cn/jiaowu/pkgl/jsjy/jsjy_add_new.htmlx')
         self.assertFalse(result['ok']);self.assertEqual(result['code'],'FORBIDDEN')
+
+    def test_classroom_logged_out_error_page_triggers_session_handoff(self):
+        body='<html><title>出错页面</title><p>用户没有登录，请重新登录！</p><script>window.location.href="/Logon.do?method=logon"</script></html>'.encode()
+        with patch.object(ncut.ur,'build_opener') as op:
+            op.return_value.open.return_value=Response(body,content_type='text/html')
+            result,_=ncut.fetch('https://jwxtbk.ncut.edu.cn/jiaowu/pkgl/llsykb/llsykb_find_jx0601_kx.htmlx')
+        self.assertFalse(result['ok']);self.assertEqual(result['code'],'AUTH_REQUIRED')
 
     def test_mobile_identity_projects_fields_and_rejects_empty_identity(self):
         argv=['ncut','request','hall','--capability','mobile-identity','--method','POST','--path','/EIP/api/getUserAttributeForMobile.htm','--account','me']
@@ -163,6 +185,26 @@ class AccessTests(unittest.TestCase):
         other=search(root, '查看企业微信消息')
         self.assertTrue(other['matches'])
         self.assertTrue(all(m['service']=='wecom' and m['status']=='not_connected' for m in other['matches']))
+        self.assertIsNone(result['next'])
+        self.assertIsNotNone(other['next'])
+        self.assertEqual(other['service_candidates'][0]['id'], 'wecom')
+
+    def test_unavailable_send_match_keeps_discovery_route(self):
+        root=SCRIPTS.parent.parent/'wechat-personal'
+        result=search(root, '微信发送')
+        self.assertEqual(result['matches'][0]['id'], 'send-message')
+        self.assertIsNotNone(result['next'])
+        self.assertEqual(result['service_candidates'][0]['status'], 'partially_verified')
+        self.assertEqual(result['service_candidates'][0]['capabilities']['send-message'], 'not_connected')
+
+    def test_source_only_match_and_runtime_match_are_not_collectively_ready(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);caps=root/'references/capabilities';caps.mkdir(parents=True)
+            for ident,status in [('read','runtime_verified'),('pending','source_verified')]:
+                (caps/(ident+'.md')).write_text('---\nid: '+ident+'\nservice: example\nkeywords: ["same query"]\nstatus: '+status+'\ntransport: http\ncommand: ["request"]\n---\n')
+            result=search(root, 'same query')
+            self.assertEqual(len(result['matches']),2)
+            self.assertIsNotNone(result['next'])
 
     def test_business_auth_failure_inside_http_200_is_not_success(self):
         with patch.object(ncut.ur,'build_opener') as op:

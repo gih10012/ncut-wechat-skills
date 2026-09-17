@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import time
 import desktop
+from native_messages import main as native_read
 
 
 def main(argv, access):
@@ -15,14 +16,15 @@ def main(argv, access):
     parser.add_argument('--service', help='A registered school business service, not personal WeCom chat')
     parser.add_argument('--account', default='me')
     parser.add_argument('--window', type=int, help='An observed official WeChat window ID')
-    parser.add_argument('--transport', choices=['companion', 'current-desktop'],
-                        help='Prefer an independent companion login; current-desktop explicitly uses the existing Linux client')
+    parser.add_argument('--transport', choices=['native', 'companion', 'current-desktop'],
+                        help='Default: check existing local message access; current-desktop explicitly opens the login UI; companion is legacy and unavailable')
     args = parser.parse_args(argv)
     meta_path = access.STATE / 'login.json'
     saved = json.loads(access.private_read(meta_path)) if meta_path.exists() else {}
     platform = args.platform or saved.get('platform', 'wechat')
     service = args.service or (saved.get('service') if not args.platform else None)
-    transport = args.transport or (saved.get('transport', 'companion') if not args.platform else 'companion')
+    transport = args.transport or (saved.get('transport', 'native')
+                    if not args.platform and args.operation in ('finish', 'status') else 'native')
     if platform == 'school' or service:
         command = ['python3', str(access.ROOT.parent / 'ncut-web-api/scripts/ncut.py'),
                    'login', args.operation, '--account', args.account, '--service', service or 'jwxt']
@@ -33,10 +35,22 @@ def main(argv, access):
         return
     if args.operation != 'status':
         access.private_write(meta_path, json.dumps({'platform': platform, 'transport': transport}))
+    if transport == 'native' and platform == 'wechat':
+        try:
+            result = native_read(['status', '--account', args.account])
+        except (ValueError, OSError) as exc:
+            access.emit({'ok': False, 'code': 'NATIVE_READ_UNAVAILABLE', 'login_verified': False,
+                         'message': str(exc) if isinstance(exc, ValueError) else type(exc).__name__,
+                         'next': '按 references/workflows/native-linux.md 处理本机读取缺项；需要重新扫码时才使用 --transport current-desktop。'})
+            return
+        access.emit({**result, 'code': 'NATIVE_READ_READY', 'login_verified': False,
+                     'verified_scope': 'local_client_database',
+                     'next': '现有本地读取可用，直接 native conversations/messages；这不证明客户端当前在线或已取得发送权限。'})
+        return
     if transport == 'companion':
         access.emit({'ok': False, 'code': 'COMPANION_LOGIN_NOT_CONFIGURED', 'platform': platform,
-                     'preferred_transport': 'independent_companion', 'login_verified': False,
-                     'next': '独立伴随端尚未接入；本命令不启动客户端或容器。原生消息 API 未验证，业务网页优先复用其独立登录/API；学校业务用 --platform school --service 教务/预约。'})
+                     'login_verified': False,
+                     'next': '旧伴随端未配置。微信本地读取使用 native conversations/messages；学校业务用 --platform school --service 教务/预约。'})
         return
     if platform == 'wecom':
         access.emit({'ok': False, 'code': 'WECOM_CLIENT_SETUP_REQUIRED',

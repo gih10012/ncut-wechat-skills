@@ -32,11 +32,20 @@ class PersonalLoginTests(unittest.TestCase):
             self.assertFalse(self.results[-1]['login_verified'])
 
     def test_default_login_does_not_touch_current_desktop(self):
-        with patch.object(personal_login.desktop, 'windows') as windows, patch.object(personal_login.subprocess, 'Popen') as launch:
+        with patch.object(personal_login, 'native_read', return_value={'ok': True, 'session_count': 2}) as native, patch.object(personal_login.desktop, 'windows') as windows, patch.object(personal_login.subprocess, 'Popen') as launch:
             personal_login.main(['--platform', 'wechat'], self.access)
-            self.assertEqual(self.results[-1]['code'], 'COMPANION_LOGIN_NOT_CONFIGURED')
+            self.assertEqual(self.results[-1]['code'], 'NATIVE_READ_READY')
+            self.assertFalse(self.results[-1]['login_verified'])
+            native.assert_called_once_with(['status', '--account', 'me'])
             windows.assert_not_called()
             launch.assert_not_called()
+
+    def test_missing_keys_reports_local_gap_without_launching_a_client(self):
+        with patch.object(personal_login, 'native_read', side_effect=ValueError('NATIVE_KEYS_REQUIRED')), patch.object(personal_login.desktop, 'windows') as windows:
+            personal_login.main(['--platform', 'wechat'], self.access)
+        self.assertEqual(self.results[-1]['code'], 'NATIVE_READ_UNAVAILABLE')
+        self.assertEqual(self.results[-1]['message'], 'NATIVE_KEYS_REQUIRED')
+        windows.assert_not_called()
 
     def test_finish_reuses_explicit_transport_without_prior_conversation(self):
         with patch.object(personal_login.desktop, 'windows', return_value=[{'id': 1, 'title': '微信'}]), patch.object(personal_login.desktop, 'main', return_value={'ok': True, 'image': '/private/window.png'}) as capture:
@@ -49,7 +58,7 @@ class PersonalLoginTests(unittest.TestCase):
         (self.access.STATE/'login.json').write_text('{"platform":"wechat","transport":"current-desktop"}')
         with patch.object(personal_login.desktop, 'windows') as windows:
             personal_login.main(['--platform', 'wecom'], self.access)
-            self.assertEqual(self.results[-1]['code'], 'COMPANION_LOGIN_NOT_CONFIGURED')
+            self.assertEqual(self.results[-1]['code'], 'WECOM_CLIENT_SETUP_REQUIRED')
             windows.assert_not_called()
 
 

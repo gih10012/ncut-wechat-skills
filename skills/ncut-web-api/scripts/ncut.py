@@ -146,7 +146,13 @@ def fetch(url, *, method='GET', data=None, content_type=None, state=None, expect
     with response:
         status = response.status; location = response.headers.get('Location')
         if 300 <= status < 400 and location:
-            return {'ok': False, 'code': 'REDIRECT', 'status': status, 'url': safe_url(url), 'location': safe_url(up.urljoin(url, location)), 'fetched_at': started}, b''
+            target = up.urlsplit(up.urljoin(url, location))
+            source = up.urlsplit(url)
+            login = ((target.hostname == 'sso.ncut.edu.cn' and target.path.startswith('/sso/login')) or
+                     (target.hostname == 'jwxtbk.ncut.edu.cn' and (target.path == '/Logon.do' or
+                       (source.hostname == target.hostname and source.path.startswith('/jsxsd/') and
+                        source.path != '/jsxsd/' and target.path in ('/jsxsd/', '/jsxsd')))))
+            return {'ok': False, 'code': 'AUTH_REQUIRED' if login else 'REDIRECT', 'status': status, 'url': safe_url(url), 'location': safe_url(up.urljoin(url, location)), 'fetched_at': started}, b''
         raw = response.read(max_bytes + 1)
         ct = response.headers.get_content_type(); charset = response.headers.get_content_charset() or 'utf-8'
     info = {'ok': 200 <= status < 300, 'status': status, 'url': safe_url(url), 'content_type': ct, 'fetched_at': started}
@@ -157,6 +163,8 @@ def fetch(url, *, method='GET', data=None, content_type=None, state=None, expect
     elif not info['ok']: info['code'] = 'HTTP_ERROR'
     elif is_document and re.search(r'<title>\s*出错页面\s*</title>', text, re.I) and '您没有访问该功能的权限' in text:
         info.update(ok=False, code='FORBIDDEN')
+    elif is_document and re.search(r'<title>\s*出错页面\s*</title>', text, re.I) and '用户没有登录，请重新登录' in text:
+        info.update(ok=False, code='AUTH_REQUIRED')
     elif is_document and up.urlsplit(url).hostname.endswith('.ncut.edu.cn') and re.search(r'''location(?:\.href)?\s*=\s*["']https://sso\.ncut\.edu\.cn/sso/login(?:[?"'])''', text):
         info.update(ok=False, code='AUTH_REQUIRED')
     elif is_document and re.search(r'<input[^>]+type=[\"\']password|统一身份认证|短信验证码', text, re.I) and ('<html' in text.lower() or '<form' in text.lower()):
@@ -227,6 +235,7 @@ def main():
     q.add_argument('--resolve',action='store_true'); q.add_argument('--account')
     q = sub.add_parser('favorite'); q.add_argument('operation',choices=['show','set','verify']); q.add_argument('--account',required=True); q.add_argument('--query',required=True); q.add_argument('--value',choices=['yes','no']); q.add_argument('--allow-write',action='store_true')
     q = sub.add_parser('timetable'); q.add_argument('--account', required=True); q.add_argument('--term'); q.add_argument('--week', choices=['all','current'], default='all'); q.add_argument('--date'); q.add_argument('--output')
+    q = sub.add_parser('grades'); q.add_argument('--account', required=True); q.add_argument('--term', help='Exact semester ID from the current school options; default: latest term with grades'); q.add_argument('--output')
     q = sub.add_parser('classrooms'); q.add_argument('--account', required=True); q.add_argument('--date', required=True); q.add_argument('--start', required=True); q.add_argument('--end', required=True)
     q.add_argument('--campus', default='校本部'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--output')
     q = sub.add_parser('task'); tq=q.add_subparsers(dest='operation',required=True)
@@ -259,6 +268,9 @@ def main():
     if args.cmd == 'classrooms':
         from classrooms import classrooms
         classrooms(args); return
+    if args.cmd == 'grades':
+        from grades import grades
+        grades(args); return
     if args.cmd == 'task':
         from task_drafts import main as task_main
         task_main(args); return

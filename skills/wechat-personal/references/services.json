@@ -22,9 +22,10 @@
       ],
       "origins": [],
       "entry": null,
-      "transport": "no verified personal message API",
-      "status": "not_connected",
-      "verified_scope": "native message API unverified; business web sessions are independent"
+      "transport": "local_sqlcipher_readonly",
+      "status": "partially_verified",
+      "verified_scope": "Linux local conversations and synced recent messages; sending and remote login unverified",
+      "capabilities": {"conversations": "runtime_verified", "read-messages": "runtime_verified", "send-message": "not_connected"}
     },
     {
       "id": "wecom",

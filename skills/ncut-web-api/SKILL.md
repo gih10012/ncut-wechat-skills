@@ -13,12 +13,13 @@ description: 用本人登录态查询和办理北方工业大学学习/校园业
 
 1. 常用任务直接运行下列命令。其他需求先 `python3 "$NCUT" knowledge --query '用户需求'`；只回传最多 3 个能力的命令、接口、验证状态和契约路径，不自动展开参考文件。返回的 `command` 是传给脚本的参数数组，替换其中占位符，不新写临时爬虫。
 2. `runtime_verified` 命中就执行，正常响应即结束。不预查登录、不抓 JS、不读全目录、不更新未变的知识。要扩展参数或修接口时才读匹配文件，或按能力 ID `knowledge --query ID --details`。
-3. 没命中先定位具体业务。办理入口用 `catalog --query '业务词'`；缺接口才按 [局部发现](references/workflows/discover-capability.md) 查最多两个相关资源。只记录实际证据；目录、源码、历史数据不能冒充本人实时业务成功。
+3. 没命中或命中 `source_verified/workflow_ready/not_connected` 时，按 `next` 定位具体业务。办理入口用 `catalog --query '业务词'`；缺接口才按 [局部发现](references/workflows/discover-capability.md) 查相关资源。单项新能力最多探索15分钟，到点报告证据和缺项；不把命中未验证条目当作可直接调用。
 4. 企微/微信里的学校链接仍按学校业务 API 查询；仅该服务要求客户端即时身份时处理这一步，不自动接入整个客户端或小程序平台。
 
 ```bash
 python3 "$NCUT" timetable --account me --week current
 python3 "$NCUT" timetable --account me --date YYYY-MM-DD
+python3 "$NCUT" grades --account me
 python3 "$NCUT" classrooms --account me --date YYYY-MM-DD --start 18:00 --end 20:00
 python3 "$NCUT" reservation calendar --account me --site 596 --date YYYY-MM-DD
 python3 "$NCUT" reservation rules --account me --site 596
@@ -29,6 +30,8 @@ python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' -
 ```
 
 课表和空教室查询正常各两次 HTTP；直接解析学校响应，不启动浏览器渲染。空教室支持 `--query 励学221`、`--campus 校本部`、`--limit 8`，先完整筛选所有相交时段，再限制输出条数；首次自动使用本科会话换取各类课表会话。空闲不代表本人有借用权限。羽毛球草稿仅是本机写入，**没有学校写接口或定时抢场执行器的生产验收**。
+
+成绩默认查询最近已有成绩的学期；`--term` 使用返回的 `available_terms[].id`，保留学校原始分数和不同考试记录。正常两次 HTTP；最新学期确实无数据才向前查。细节仅需修改或排错时读 [成绩契约](references/capabilities/jwxtbk/personal-grades.md)。
 
 ## 登录与失败
 

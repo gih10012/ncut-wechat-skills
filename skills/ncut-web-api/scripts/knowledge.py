@@ -47,13 +47,29 @@ def search(root, query, details=False):
                     if len(content) > 4000: item['workflow_truncated'] = True
                     included_workflows.add(workflow)
         result.append(item)
+    pending = [item for item in result if not (
+        item.get('status') == 'runtime_verified' and
+        item.get('transport') not in ('unavailable', 'manual-ui') and
+        (item.get('command') or item.get('requests')))]
     routes = []
-    if not result:
-        for entry in json.loads((root / 'references/services.json').read_text()).get('services', []):
-            if any(term.casefold() in query.casefold() for term in [entry['id'], *entry['aliases']]):
+    if not result or pending:
+        registry = root / 'references/services.json'
+        entries = json.loads(registry.read_text()).get('services', []) if registry.is_file() else []
+        for entry in entries:
+            if (entry['id'] in {item.get('service') for item in pending} if pending else any(
+                    term.casefold() in query.casefold() for term in [entry['id'], *entry['aliases']])):
                 routes.append(entry)
+    next_step = None
+    if pending:
+        next_step = ('Matched but not ready for direct execution: '+', '.join(item['id'] for item in pending)+
+                     '. Read only the matched contract/workflow and verify this business. '
+                     'Do not infer availability from a match or start client/UI business automation. '
+                     'Limit new-capability exploration to 15 minutes, then report evidence and the remaining gap.')
+    elif not result:
+        next_step = ('No capability matched. Resolve this business service only; use its observed entry '
+                     'and related requests. Limit exploration to 15 minutes; do not start client/UI business automation.')
     return {'matches': result, 'service_candidates': routes[:3],
-            'next': None if result else 'No capability matched. Resolve this business service only; do not start client/UI setup.'}
+            'next': next_step}
 
 
 def capability(root, name):

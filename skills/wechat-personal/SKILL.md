@@ -13,19 +13,19 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 - 给出公众号链接：`python3 "$WX" article --url '真实链接' --max-chars 6000`。结果仅覆盖页面文字层，图片正文按需读取。
 - 学校信息：直接使用同套 [ncut-web-api](../ncut-web-api/SKILL.md) 的课表、场地余量或对应接口；不先启动微信/企微。
-- 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。命中真实可用契约就 `request`，正常结果即结束；细节仅按能力 ID 加 `--details` 或读对应文件。
+- 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。`runtime_verified` 命中直接按对应命令/请求执行，正常结果即结束；未验证条目按 `next` 做局部发现，不把检索命中当作可用。细节仅按能力 ID 加 `--details` 或读对应文件。
 - 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
-- 微信发送、企微消息：仍须按 [消息接入](references/workflows/messages.md) 独立探索并验证，保留手机和 Linux 登录。读取覆盖当前客户端已同步的本地消息，不保证云端完整历史；图片、语音、视频仅标类型。
+- 微信发送、企微消息：当前未接通。仅当前任务确实需要时按 [消息接入](references/workflows/messages.md) 检查局部新证据；不启动整个平台接入工程。已有读取覆盖当前客户端已同步的本地消息，不保证云端完整历史；图片、语音、视频仅标类型。
 
 新内部网页按 [业务 API 接入](references/workflows/embedded-web.md) 处理，确实只有小程序入口时才看 [小程序边界](references/workflows/mini-program.md)。缺项发现限于当前业务请求，不把查询扩大为通用客户端工程。
 
-优先级：v0 通用 Web 写请求与预请求/读回示例；v1 本人消息收发和公众号；v2 实际观察到的微信深链；v3 先从学校 Web 寻找企微服务的等价入口，无替代再处理该业务的 OAuth。不能因为目录名称相同就认定数据和权限等价。
+单项新能力最多探索15分钟实际工作时间；切换路线不重置，等待本人认证不计入。到点报告证据、缺项和后续选项。界面仅用于必要登录和接口发现，日常能力通过 HTTP、已有命令或本机数据执行。长期路线图留在仓库 README，不自动串行推进。
 
 ## 登录与本机状态
 
 业务会话在 `~/.local/state/wechat-personal/accounts/`，0700/0600；与学校 skill 共用标准库 HTTP/检索模块，两者一起安装。普通业务请求不依赖旧 wechatcopilot、加密卷、Android 容器或常驻服务。
 
-学校登录：`login --platform school --service 教务`（或预约），本人完成后 `login finish`；平台/服务保存在本机。微信/企微原生登录 `login --platform wechat|wecom` 默认保留手机与 Linux 登录及桌面，目前明确返回伴随端未配置，不能声称已能生成可用二维码。只在登录任务需要时读 [认证入口](references/workflows/login.md)。
+学校登录：`login --platform school --service 教务`（或预约），本人完成后 `login finish`；平台/服务保存在本机。`login --platform wechat` 默认检查现有本地读取，返回的 `NATIVE_READ_READY` 不证明客户端在线或远端登录有效；日常查询直接 native，不预查登录。确需本人扫码时使用显式 `--transport current-desktop`，只在登录任务需要时读 [认证入口](references/workflows/login.md)。企微原生入口仍未配置。
 
 旧客户端和当前窗口工具只作显式人工诊断入口；普通能力查询不召回其操作流程，不自动启用。用户明确要求使用现有 Linux 窗口时才读 [窗口读取](references/workflows/visible-wechat.md)，且只说明当前一屏覆盖范围。
 

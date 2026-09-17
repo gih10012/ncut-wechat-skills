@@ -119,7 +119,7 @@ async function main(){
       const {sessionId}=await c.call('Target.attachToTarget',{targetId:portals[0].targetId,flatten:true});
       const click=async(selector,label)=>{
         const expression=`(()=>{const items=[...document.querySelectorAll(${JSON.stringify(selector)})].filter(e=>e.getClientRects().length&&e.textContent.trim()===${JSON.stringify(label)});if(items.length!==1)return false;items[0].click();return true;})()`;
-        for(let i=0;i<20;i++){
+        for(let i=0;i<40;i++){
           const r=await c.call('Runtime.evaluate',{expression,userGesture:true,returnByValue:true},sessionId);
           if(r.result.value===true)return;
           await pause(100);
@@ -127,7 +127,15 @@ async function main(){
         throw Error('SCHOOL_MENU_CHANGED');
       };
       await click('.tabs .tab','本科生');
-      await click('.one-menu-cell','选课&课表');
+      try{
+        await click('.one-menu-cell','选课&课表');
+      }catch(error){
+        if(error.message!=='SCHOOL_MENU_CHANGED')throw error;
+        // The portal can reset its selected tab while loading role data.
+        // Reselect this tab once; do not restart SSO or keep retrying login.
+        await click('.tabs .tab','本科生');
+        await click('.one-menu-cell','选课&课表');
+      }
       await click('.three-menu-cell .cell-info','学生个人课表');
       for(let i=0;i<40;i++){
         await pause(250);

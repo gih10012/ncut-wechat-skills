@@ -16,7 +16,7 @@ python3 scripts/install.py
 
 对 Codex 直接说“查本周课表”“找今晚的空教室”“查羽毛球预约规则”，或给出一个新业务目标。没有现成子能力时，skill 应自行从服务注册表、目录、页面/客户端和已观察的请求继续探索，而非要求用户先提供 API。
 
-- [学校 skill](skills/ncut-web-api/SKILL.md)：课表、空教室、预约日历和规则已真实调用验证。
+- [学校 skill](skills/ncut-web-api/SKILL.md)：课表、成绩、空教室、预约日历和规则已真实调用验证。
 - [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索和公众号文字层已验证；发送与企微消息待接通。
 - 子能力存放在 `references/capabilities/`；必要的多请求编排存放在 `references/workflows/`。它们是可检索的子 skill，不为每个 endpoint 新建顶层 skill。
 
@@ -24,16 +24,24 @@ python3 scripts/install.py
 
 | 阶段 | 验收目标 | 当前状态 |
 | --- | --- | --- |
-| v0 | 通用发现、总结、复用；真实 Web POST 写入并读回；必要预请求示例 | 收藏 POST → 读回 → 取消 POST → 确认恢复已实测；已保存换票及写入子能力 |
-| v1 | 本人微信／企微消息接收、发送；公众号文章读取 | 文章与 Linux 微信本地消息读取可用；微信发送、企微消息待实测 |
-| v2 | 微信内链接与深链读取 | 待实现；scheme 以实际客户端为准 |
-| v3 | 企微服务与学校 Web 替代映射；无替代时处理本人 OAuth 授权 | 学校目录配对、移动页复用学校SSO取得本人身份已实测；完整企微清单、业务等价性和OAuth待验收 |
+| v0（当前） | Web 能力直接调用、缺项发现、真实验证、最小契约沉淀与再次复用 | 成绩发现与二次调用已实测，正常复用不改知识；收藏写入及恢复此前已实测。新对话体验待本人验收 |
+| v1.a | 核实并尝试 Qclaw／微信官方机器人通道 | 尚未接入；机器人通道与本人完整收件箱分别验收，不假设能向任意联系人发送 |
+| v1.b | 评估实际支持微信的轻量客户端后端，以 OneBot／MCP 暴露能力 | 尚未接入；读取是必要目标，发送是扩展。OneBot 协议本身不证明后端支持微信登录 |
+| 后续业务 | 具体微信链接、企微业务与学校 Web 等价入口 | 学校目录配对及部分身份/入口已验证；深链、完整企微清单、业务等价性和OAuth按实际需求接入 |
 
 不把 HTTP 200、离线测试、UI 截图或已写文档当作真实业务成功；每个能力记录自己的验证范围。真实订场、消息发送等操作仍按用户当次授权的目标执行。学校夜间失败须区分网络、认证、权限和业务开放时间。
 
 v0 示例：[服务收藏](skills/ncut-web-api/references/capabilities/hall/service-favorite.md)、[写入预请求与读回](skills/ncut-web-api/references/workflows/web-write.md)。`favorite verify` 真实改变本人收藏并恢复，必须在获准验证时使用 `--allow-write`；不会订场或提交申请。
 
 v1 读取路径：[现有 Linux 微信的一次性密钥读取](skills/wechat-personal/references/workflows/native-linux.md)。该工具需要本人本机授权，只读本人微信进程，匹配数据库 HMAC 后私存密钥；不重登录或改全局 ptrace 设置。16个数据库密钥和实际近期消息读取已验证；后续 `native conversations` / `native messages` 直接调用，普通读取不再需要 sudo。当前仅覆盖本机已同步数据，发送仍待验收。原生读取另需 Python 3.11+、pycryptodome 和系统 libzstd，见该流程。
+
+当前执行只推进 v0。新能力优先查匹配的 GitHub 实现并核对学校当前接口，累计探索上限15分钟；换路线不重置，等待本人认证不计入。界面仅用于必要登录和接口发现。v1 可另行评估轻量服务与 MCP，未成熟的窗口发送原型保留在本机，不作为正式能力。
+
+## v0 验收交接
+
+- 新增 [成绩查询契约](skills/ncut-web-api/references/capabilities/jwxtbk/personal-grades.md)：现有菜单/表单发现 → 真实只读 POST → 解析学期及课程成绩 → 再次直接调用。发现到真实验证约13分钟；二次调用结果一致，知识文件未改变。
+- 修正未接通能力的检索后续指引、微信平台与读取能力状态、学校 HTTP 200 登录失效页与已知登录跳转识别。已有课表和跨两组节次的空教室查询已实测复核。
+- 本机命令与相关自动测试已验证；由本人按照 [新对话验收问题](ACCEPTANCE.md) 检查实际使用体验。未代替本人宣称新对话验收通过。
 
 ## 开发
 
