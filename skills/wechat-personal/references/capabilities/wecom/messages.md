@@ -27,3 +27,8 @@ note: "本人企微原生消息待接入；Linux 微信数据库读取不覆盖�
 - 官方 [WecomTeam/wecom-cli](https://github.com/WecomTeam/wecom-cli) 可在Linux运行，但其[命令参考](https://github.com/WecomTeam/wecom-cli/blob/main/docs/cli-reference.md)说明扫码绑定的是机器人凭证，消息示例是 `message aibot sessions list`；README仅列机器人近期对话推送。未发现其公开文档提供本人完整聊天读取，不能用该CLI替代本目标，也没有为了验收读取而创建机器人。
 
 当前可交接的下一步是一次性只读检查既有Android企微缓存的数据库元信息，先确认是否存在可用本地消息，再决定是否值得继续；需要本人本机授权，不需要Windows常驻。该步骤本身不保证能解密，也不证明能持续同步。本人离线期间将授权事项记入本机待办，不重复生成登录二维码。
+
+2026-09-18按本人“轻服务、稍微尝试”的要求补查：
+
+- [Hoshinonyaruko/Finance_Wechat_Group_Chatbot_OnebotApi](https://github.com/Hoshinonyaruko/Finance_Wechat_Group_Chatbot_OnebotApi)明确要求企业认证和会话存档API；不是普通企微账号扫码即可读取的服务。本机未持有该企业级权限，未部署Java/Python双进程栈。
+- 官方 [WecomTeam/aibot-node-sdk](https://github.com/WecomTeam/aibot-node-sdk)提供智能机器人长连接；npm版本1.0.7的包展开约0.5MB，直接依赖仅ws、axios和eventemitter3。它是轻服务候选，但认证仍需机器人Bot ID/Secret，消息范围限于机器人接收的事件，不能读取本人既有全部聊天。本机未安装WeCom CLI，也没有其已保存凭证。没有新建企业或机器人来代替个人消息目标。
