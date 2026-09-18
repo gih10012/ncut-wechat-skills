@@ -4,6 +4,8 @@
 
 手机侧使用 [SmsForwarder v3.5.0](https://github.com/pppscn/SmsForwarder/releases/tag/v3.5.0)。已核对该tag的 [NotificationService](https://github.com/pppscn/SmsForwarder/blob/v3.5.0/app/src/main/kotlin/cn/ppps/forwarder/service/NotificationService.kt) 及 [WebhookUtils](https://github.com/pppscn/SmsForwarder/blob/v3.5.0/app/src/main/kotlin/cn/ppps/forwarder/utils/sender/WebhookUtils.kt)：通过Android通知监听取得包名、标题和文字，Webhook支持JSON模板和自定义认证头。业务执行不使用聊天界面点击。
 
+安装交接时先说明手机依赖：企微在本人手机上产生通知，SmsForwarder读取通知并推送，接收端保存，skill按需查询。手机无需一直亮屏，但要能正常接收企微通知并允许转发工具后台工作；服务器常开不能取代手机。同一局域网只是下文临时测试的条件，跨网和长期部署见[独立服务说明](../../../../BACKGROUND-RECEIVER.md)，当前尚未部署。本人询问原理或网络限制不代表配置已完成。
+
 先查看电脑当前局域网地址，替换下例中的地址；只在同一可信局域网测试。使用已安装skill中的`wechat.py`：
 
 ```bash
