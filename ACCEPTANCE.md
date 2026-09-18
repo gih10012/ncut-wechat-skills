@@ -39,6 +39,14 @@ v1实际验收：本人扫码绑定ClawBot并发送测试文字，第三方SDK�
 
 ## 2026-09-18 OneBot有限试运行
 
-按本人追加要求，安装并试跑第三方Foxerine/ilink-onebot，复用现有ClawBot绑定。真实本机WebSocket调用 `get_version_info`、`get_status`、`get_login_info` 均通过；限时接收进行了10次真实iLink轮询，均为空批次。未收到指定测试文字，未执行任何发送，因此本轮不能记为OneBot消息收发通过。试验进程已自动退出，未创建常驻服务；等待本人测试文字后续接同一入口。
+按本人追加要求，安装并试跑第三方Foxerine/ilink-onebot，复用现有ClawBot绑定。真实本机WebSocket调用 `get_version_info`、`get_status`、`get_login_info` 均通过；限时接收进行了10次真实iLink轮询，均为空批次。未收到指定测试文字，未执行任何发送，因此本轮不能记为OneBot消息收发通过。试验进程已自动退出，未创建常驻服务。本人随后明确普通好友/群聊优先，ClawBot仅作补充，不再把补充通道的测试文字作为主线阻碍。
 
 普通微信好友/群聊的候选仍依赖不匹配的Windows版本、UI发送或虚拟桌面，未部署；现有native本地读取继续可用。企微新增检查了需要企业认证/会话存档的OneBot实现及官方长连接机器人SDK，均未证明个人收件箱可读。具体源码、安装故障和能力范围见 [OneBot尝试](skills/wechat-personal/references/workflows/onebot.md)及企微消息契约。
+
+本人完成既有Android企微缓存的一次性只读元信息检查，确认有消息/会话数据库，但相关文件不是明文SQLite；此结果仅证明文件存在，未读取正文，未证明持续收消息。企微目标继续包括历史和后续消息，按本人要求先尝试后续新消息。随后扩展检查OneBots、Satori、Rikka、Akasha-WeChat及Android/iPad候选，发现应用消息范围、Windows依赖、旧客户端版本或缺失协议后端等限制；本轮没有新增普通聊天收发成功记录。
+
+## Android企微通知补充的准备
+
+本人同意通知转存仅作补充，完整聊天目标保留。已实现标准库有界接收端、手机配置生成、本机归档查询及`wecom_notifications` MCP工具。7项新增测试覆盖实际本机HTTP认证、包名过滤、重复投递、Unicode保真、请求限制及无HTTP归档读取；微信skill共42项测试通过。从已安装skill路径、以`/tmp`为工作目录完成setup、限时监听并退出，真实MCP客户端列出4个工具并调用通知读取，返回空归档。
+
+这些结果仅证明本机实现和MCP连通。手机安装、通知使用权授权、实际企微消息通知投递与读回尚未完成，通知条目仍为`not_connected`；企微完整消息仍未接通。实际凭证和手机配置留在本机，未发布。

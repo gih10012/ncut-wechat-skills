@@ -11,7 +11,8 @@ from mcp.types import ToolAnnotations
 SCRIPT = Path(__file__).with_name('wechat.py')
 server = FastMCP('wechat-personal', instructions=(
     'Read the owner\'s Linux WeChat synced messages or their ClawBot channel. '
-    'These are distinct sources. WeCom is not connected. No automatic replies.'))
+    'These are distinct sources. Optional Android WeCom notifications are only notification text, '
+    'not complete personal chats. The full WeCom inbox is not connected. No automatic replies.'))
 READ = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
 POLL = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=False, openWorldHint=True)
 
@@ -52,6 +53,12 @@ def wechat_messages(chat: str, limit: int = 20, account: str = 'me') -> dict:
 def clawbot_updates(limit: int = 20, account: str = 'me') -> dict:
     """Poll one ClawBot batch (up to 40 seconds). Advances a private local cursor; does not read personal chats or reply."""
     return invoke(['bot', 'updates', '--account', account, '--limit', str(max(1, min(limit, 100)))])
+
+
+@server.tool(annotations=READ)
+def wecom_notifications(limit: int = 20, account: str = 'me') -> dict:
+    """Read locally forwarded Android WeCom notification text only; excludes unnotified chats and historical inbox data."""
+    return invoke(['notifications', 'list', '--account', account, '--limit', str(max(1, min(limit, 100)))])
 
 
 if __name__ == '__main__':

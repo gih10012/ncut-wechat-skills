@@ -1,6 +1,6 @@
 # OneBot轻量尝试（2026-09-18）
 
-目标仍区分普通微信好友/群聊与ClawBot通道，不能用后者证明前者已接通。
+本人明确要求普通微信好友/群聊收发优先；ClawBot只能作为补充，不是普通聊天验收的前置条件。
 
 ## 普通微信候选核对
 
@@ -9,6 +9,29 @@
 - [jessiongod/wechat-onebot-bridge](https://github.com/jessiongod/wechat-onebot-bridge)依赖Windows WeFlow及UIA发送，未部署。
 
 这些核对没有证明普通好友/群聊的OneBot收发成功；Linux已有本地读取继续走native命令。
+
+## 扩展协议及后端核对
+
+按本人追加要求，继续检查OneBot11、OneBot12、Satori及多协议网关。以下是公开源码/部署说明核对，均不是本人账号运行验收。
+
+| 项目 | 实际后端与本机适用性 |
+| --- | --- |
+| [lc-cn/onebots](https://github.com/lc-cn/onebots) | 提供OneBot11/12、Satori、Milky等出口，但微信适配分别是公众号和ClawBot；企微是自建应用、微信客服。多协议出口不增加普通聊天权限 |
+| [satorijs/satori](https://github.com/satorijs/satori/blob/main/adapters/wecom/src/bot.ts) | 企微源码使用CorpID、Secret、AgentID和官方应用API；微信适配为公众号，未发现个人收件箱后端 |
+| [alingalingling/Akasha-WeChat](https://github.com/alingalingling/Akasha-WeChat) | OneBot11；Windows WeFlow读取、UIA发送，不适用当前Linux环境 |
+| [CMKH1337/Astrwechat](https://github.com/CMKH1337/Astrwechat) | OneBot11；Windows本地数据库/SSE读取及UIA发送，还含Electron桌面程序 |
+| [Clov614/rikka-bot-wechat](https://github.com/Clov614/rikka-bot-wechat/blob/main/docs/onebot/README.md) | OneBot12；文档明确当前hook客户端不再支持Linux，实际adapter导入wcf-rpc-sdk；不能因历史openwechat标题判断当前Linux可用 |
+| [WeChatPadPro/WeChatPadPro](https://github.com/WeChatPadPro/WeChatPadPro) | 普通微信Pad协议候选；公开仓库主要是部署和说明，发布包另取。README要求至少2GB内存并配置MySQL、Redis，未部署为本轮轻服务 |
+
+企微Android/iPad候选的具体缺项见[企微消息](../capabilities/wecom/messages.md)。没有把“框架可在Linux运行”当成“其微信/企微后端可在Linux运行”；尚未找到同时满足当前环境、普通消息范围和轻量约束的新增可执行后端。
+
+## QQ设备协议思路的适用性
+
+本人进一步要求参照QQ手表端后端。已核对[MiraiGo设备类型](https://github.com/Mrs4s/MiraiGo/blob/master/client/internal/auth/device.go)与[go-cqhttp](https://github.com/Mrs4s/go-cqhttp)：其OneBot接口之下还有QQ设备协议库，实现登录、会话和消息通信。可复用的设计是“独立设备协议后端→标准事件/API”，微信和企微仍需各自后端，不能直接改QQ设备类型获得微信登录。
+
+- 普通微信的同类候选是Pad协议。除上述WeChatPadPro，[wechaty/puppet-padlocal](https://github.com/wechaty/puppet-padlocal)依赖PadLocal客户端及服务token；未取得token、未验证当前服务可申请或可用。[meteor-nb/Ipad860](https://github.com/meteor-nb/Ipad860)公开说明仍依赖来源未公开的`v08.dll`和Redis，不能因有Go源码就认定可直接在本机Linux运行。
+- [AstrBot当前个人微信适配说明](https://github.com/AstrBotDevs/AstrBot/blob/master/docs/zh/platform/weixin_oc.md)明确使用`openclaw-weixin`、要求手机ClawBot插件；[客户端](https://github.com/AstrBotDevs/AstrBot/blob/master/astrbot/core/platform/sources/weixin_oc/weixin_oc_client.py)使用`ilink_bot_token`。它不是普通好友/群聊的Pad协议后端。
+- 企微完整聊天尚未找到满足当前约束的公开可执行设备协议后端；普通成员也无会话存档权限。本人另行同意[Android通知转存](android-notifications.md)作补充，不能将补充结果计为完整聊天成功。
 
 ## 已安装的补充测试
 

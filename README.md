@@ -26,7 +26,7 @@ python3 scripts/install.py
 | --- | --- | --- |
 | v0 | Web 能力直接调用、缺项发现、真实验证、最小契约沉淀与再次复用 | 成绩发现与二次调用已实测，正常复用不改知识；收藏写入及恢复此前已实测。9月18日复查学校已恢复响应，复用SSO后课表、成绩和空教室成功；登录过期提示分支已修复 |
 | v1.a | 核实并尝试 Qclaw／微信官方机器人通道 | 已采用第三方 wechatbot-sdk 0.3.0，真实扫码绑定并读取本人测试文字；只覆盖ClawBot通道，发送未验收 |
-| v1.b（进行中） | 评估实际支持微信的轻量客户端后端，以 OneBot／MCP 暴露能力 | 原有Linux微信读取及ClawBot已封装并实测MCP；第三方OneBot桥复用ClawBot绑定，协议接口通过，但限时轮询为空，消息收发待测试文字。普通好友/群聊发送与企微个人读取仍未接通 |
+| v1.b（进行中） | 评估实际支持微信的轻量客户端后端，以 OneBot／MCP 暴露能力 | 原有Linux微信读取及ClawBot已封装并实测MCP；普通好友/群聊OneBot收发优先，仍缺匹配的消息后端。ClawBot桥只算补充：元信息接口通过，限时轮询为空，收发未验收。企微个人读取仍未接通 |
 | 后续业务 | 具体微信链接、企微业务与学校 Web 等价入口 | 学校目录配对及部分身份/入口已验证；深链、完整企微清单、业务等价性和OAuth按实际需求接入 |
 
 不把 HTTP 200、离线测试、UI 截图或已写文档当作真实业务成功；每个能力记录自己的验证范围。真实订场、消息发送等操作仍按用户当次授权的目标执行。学校夜间失败须区分网络、认证、权限和业务开放时间。
@@ -35,9 +35,11 @@ v0 示例：[服务收藏](skills/ncut-web-api/references/capabilities/hall/serv
 
 v1 读取路径：[现有 Linux 微信的一次性密钥读取](skills/wechat-personal/references/workflows/native-linux.md)。该工具需要本人本机授权，只读本人微信进程，匹配数据库 HMAC 后私存密钥；不重登录或改全局 ptrace 设置。16个数据库密钥和实际近期消息读取已验证；后续 `native conversations` / `native messages` 直接调用，普通读取不再需要 sudo。当前仅覆盖本机已同步数据，发送仍待验收。原生读取另需 Python 3.11+、pycryptodome 和系统 libzstd，见该流程。
 
-当前按本人授权推进 v1，读取优先，企微不依赖Windows常驻。新能力优先查匹配的 GitHub 实现并核对实际接口，累计探索上限15分钟；换路线不重置，等待本人认证不计入。界面仅用于必要登录和接口发现。未成熟的窗口发送原型保留在本机，不作为正式能力。
+当前按本人授权推进 v1：个人微信优先普通好友/群聊的OneBot收发，ClawBot仅补充；企微历史与新消息均保留，先尝试后续新消息，且不依赖Windows常驻。新能力优先查匹配的 GitHub 实现并核对实际接口，累计探索上限15分钟；换路线不重置，等待本人认证不计入。界面仅用于必要登录和接口发现。未成熟的窗口发送原型保留在本机，不作为正式能力。
 
 ClawBot安装、登录与有界读取见 [第三方SDK入口](skills/wechat-personal/references/workflows/clawbot.md)；按需启动的stdio MCP见 [MCP入口](skills/wechat-personal/references/workflows/mcp.md)。机器人通道不会自动取得本人其他聊天；个人微信读取继续复用已登录的Linux客户端，不另开设备会话。
+
+本人同意另加[Android企微通知转存](skills/wechat-personal/references/workflows/android-notifications.md)作为补充。限时接收端、查询命令及MCP已完成本机测试，手机实际通知投递待验收；它不覆盖未产生通知的聊天或历史，完整企微聊天目标保持未完成。
 
 ## v0 验收交接
 

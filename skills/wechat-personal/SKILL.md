@@ -16,6 +16,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。`runtime_verified` 命中直接按对应命令/请求执行，正常结果即结束；未验证条目按 `next` 做局部发现，不把检索命中当作可用。细节仅按能力 ID 加 `--details` 或读对应文件。
 - 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
 - 微信发送、企微消息：当前未接通。仅当前任务确实需要时按 [消息接入](references/workflows/messages.md) 检查局部新证据；不启动整个平台接入工程。已有读取覆盖当前客户端已同步的本地消息，不保证云端完整历史；图片、语音、视频仅标类型。
+- 企微通知补充：`python3 "$WX" notifications list --account me --limit 20`，或MCP `wecom_notifications`。仅本人Android通知的本机归档，不覆盖完整聊天。接收端与MCP已本机测试，真实手机通知尚待验收；首次设置见[Android通知](references/workflows/android-notifications.md)。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定与实际接收文字。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
 - 已配置MCP时可直接用 `wechat_conversations`、`wechat_messages`、`clawbot_updates`，与上述命令共用账号；安装和边界见 [MCP入口](references/workflows/mcp.md)。
 
