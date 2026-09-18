@@ -22,3 +22,5 @@ codex mcp add wechat-personal -- ~/.local/share/ncut-wechat-skills/bot-venv/bin/
 本MCP封装复用现有账号，未另行用OneBot登录。OneBot本身不是微信客户端；第三方适配器与实际后端核对见[OneBot尝试](onebot.md)。尚未取得匹配当前Linux环境并保留既有登录的普通消息发送后端证据，原生发送保持未接通。
 
 2026-09-18新增发送后，真实stdio客户端已列出5个工具；使用同一发送操作ID调用`clawbot_send`返回已成功请求的结果且`replayed=true`，未重发。手机送达由本人确认，读回能力仍按来源区分。
+
+4.1.13升级后，`wechat_messages(chat="微信ClawBot")`也可读取本机ClawBot双向历史。`clawbot_send`完成后优先用此工具查新消息，核对正文、时间及机器人发送人；`clawbot_updates`只消费服务端入站增量，不能代替发送后收件端读回。

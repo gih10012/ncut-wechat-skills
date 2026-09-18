@@ -11,6 +11,8 @@ uv pip install --python ~/.local/share/ncut-wechat-skills/bot-venv/bin/python -r
 
 日常命令沿用 `python3 "$WX" bot updates --account me --limit 20`，入口自动使用独立环境；已有登录直接读取，不再生成二维码。
 
+需要历史或验证机器人回执时，使用`native messages --account me --chat '微信ClawBot' --limit 20`读取Linux微信已同步的双向会话。4.1.13已实测支持这条本机读取；不再把旧版查不到会话当作当前结论。发送后先按[历史与读回](../capabilities/clawbot/read-history.md)自行验证，再决定是否需要本人确认。SDK增量读取与本机历史是两种不同来源。
+
 仅缺凭证或认证失效时：
 
 1. `python3 "$WX" bot login --account me`；若明确需要重新绑定，加 `--refresh`。已有凭证返回 `BOT_CREDENTIALS_PRESENT`，这不证明远端仍在线。

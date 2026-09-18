@@ -20,4 +20,4 @@ ClawBot读写已获本人长期授权，无需逐次确认。`--request-id`为1�
 
 发送前在账号`sends/`私存请求指纹与client_id，响应后保存结果，不存正文或上下文凭证。网络超时、错误响应或中断不能确定是否已送达时，不换新ID盲重试。`BOT_SEND_ACCEPTED`表示API受理，`server_message_id`存在时保留；返回的`delivery_verified=false`表示命令本身没有接收端读回能力。需要实际收件端证据才报告送达。
 
-2026-09-18从已安装skill、以`/tmp`为工作目录真实调用，服务端返回消息ID；本人随后确认手机ClawBot收到对应文字。当前Linux会话查询未找到ClawBot，不能据普通本地数据库独立读回这条机器人消息。本次不证明普通好友/群聊OneBot发送，也不证明反向个人微信→ClawBot发送。
+2026-09-18从已安装skill、以`/tmp`为工作目录真实调用，服务端返回消息ID；本人随后确认手机ClawBot收到对应文字。当天旧Linux版本尚未查询到ClawBot。9月19日升级至4.1.13后已能从本地历史读回该消息，以及新发出的OneBot回执；后续优先按[本地历史与读回](read-history.md)自行确认收件，不能把CLI的`delivery_verified=false`误解为本地永远无法验证。本次不证明普通好友/群聊OneBot发送，也不证明代本人通过原生微信发送。

@@ -1,5 +1,7 @@
 # Linux 微信本地消息：可复用读取
 
+2026-09-19升级复查：本人已更新到`wechat-appimage 4.1.13-3`并登录，原密钥和命令继续有效，无需重新捕获。文件传输助手读取正常，新增可查询的`微信ClawBot`会话已读到双向历史及实际新发送回执；见[ClawBot历史](../capabilities/clawbot/read-history.md)。此成功不包含原生发送。
+
 正常调用无需 sudo、浏览器或重新登录：
 
 ```bash

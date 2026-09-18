@@ -56,3 +56,15 @@
 本机包为`wechat-appimage 4.1.1-1`，desktop元数据为4.1.1；直接读取[Linux微信官网](https://linux.weixin.qq.com/)的当前HTML得到4.1.13，官方AppImage链接也正常响应。因此本机确实落后于官方发布，但官网未提供ClawBot支持说明，本轮未升级、未验证新版会话入口或原生发送后端。[腾讯仓库issue #167](https://github.com/Tencent/openclaw-weixin/issues/167)有其他用户报告跨设备ClawBot会话不显示，但它是用户报告、且涉及Mac，不能作为Linux新版必然支持或不支持的结论。
 
 `ilink-onebot`已存在ClawBot适配；其send_private_msg仍以机器人身份发给绑定用户，get_friend_list/群聊动作不支持，不能用来从本人原生微信向ClawBot或filehelper发消息。
+
+## 2026-09-19升级后的真实补充验收
+
+本人将Linux微信更新至`wechat-appimage 4.1.13-3`并登录后，原native密钥继续有效，已定位`微信ClawBot`会话并读取双向历史。没有重捕密钥、重绑机器人或接管桌面。
+
+复用前述固定版本ilink-onebot，临时启动仅监听127.0.0.1且带随机Bearer的WebSocket桥：第一轮真实iLink轮询收到本人升级后发送的文字，转换为OneBot消息事件；经真实WebSocket调用`send_private_msg`给绑定本人发送一条固定回执，返回retcode=0。随后从当前Linux客户端的ClawBot历史读到同文新回执，发送人确为该机器人，完成机器人通道的OneBot入站、发送与独立本地读回。
+
+试验独占同一账号锁并同步游标，保留本人回复上下文；禁用发送自动重试。发送前已有尝试标记，后续不得直接重跑。临时进程已退出、16791端口关闭。试验没有创建常驻服务，也没有把额外桥接依赖加入主skill的日常调用链。新会话日常收发继续使用bot命令；历史/读回用native命令，无需旧试验脚本。
+
+普通微信身份发送仍未接通：新版未观察到微信进程的TCP发送监听，D-Bus没有可调用的消息方法。二进制新增观察到`message::send_text_message`、`message::send_message`等内部字符串和抽象Unix IPC，但尚未取得外部调用、参数及认证契约，不能据字符串执行发送或把它写成可用API。本轮没有向filehelper发送图片，也没有代本人向ClawBot发送文字；真实入站来自本人升级后自己发送的消息。
+
+另核对[lichaohuai/wechat-protocol-gateway](https://github.com/lichaohuai/wechat-protocol-gateway)：仓库明确只有接口调用示例，不提供后端代码、服务地址或凭证，不能直接部署验证。未因此注册第三方、联系他人或扩大企微支线。

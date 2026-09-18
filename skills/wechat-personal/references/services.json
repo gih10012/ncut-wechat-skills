@@ -2,14 +2,25 @@
   "services": [
     {
       "id": "clawbot",
-      "aliases": ["ClawBot", "微信机器人", "QClaw消息"],
-      "origins": ["https://ilinkai.weixin.qq.com"],
+      "aliases": [
+        "ClawBot",
+        "微信机器人",
+        "QClaw消息"
+      ],
+      "origins": [
+        "https://ilinkai.weixin.qq.com"
+      ],
       "entry": "https://qclaw.qq.com/",
       "transport": "ilink_https_third_party_sdk",
       "auth": "Owner QR binding; isolated private bot credentials; actual API baseurl from login response",
       "status": "partially_verified",
-      "verified_scope": "Third-party SDK QR binding and inbound text verified; personal inbox and WeCom are separate",
-      "capabilities": {"login": "runtime_verified", "updates": "runtime_verified", "send": "not_connected"}
+      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate",
+      "capabilities": {
+        "login": "runtime_verified",
+        "updates": "runtime_verified",
+        "send": "runtime_verified",
+        "history": "runtime_verified"
+      }
     },
     {
       "id": "articles",
@@ -36,7 +47,11 @@
       "transport": "local_sqlcipher_readonly",
       "status": "partially_verified",
       "verified_scope": "Linux local conversations and synced recent messages; sending and remote login unverified",
-      "capabilities": {"conversations": "runtime_verified", "read-messages": "runtime_verified", "send-message": "not_connected"}
+      "capabilities": {
+        "conversations": "runtime_verified",
+        "read-messages": "runtime_verified",
+        "send-message": "not_connected"
+      }
     },
     {
       "id": "wecom",
