@@ -41,6 +41,8 @@ ClawBot安装、登录与有界读取见 [第三方SDK入口](skills/wechat-pers
 
 本人同意另加[Android企微通知转存](skills/wechat-personal/references/workflows/android-notifications.md)作为补充。限时接收端、查询命令及MCP已完成本机测试，手机实际通知投递待验收；它不覆盖未产生通知的聊天或历史，完整企微聊天目标保持未完成。
 
+本人也允许后续部署一个与主 skill 解耦的轻量后台接收服务，可放在常开服务器或本机；独立说明见 [BACKGROUND-RECEIVER.md](BACKGROUND-RECEIVER.md)。常驻实现与部署暂缓，普通使用与安装 skill 不自动启动服务。
+
 ## v0 验收交接
 
 - 新增 [成绩查询契约](skills/ncut-web-api/references/capabilities/jwxtbk/personal-grades.md)：现有菜单/表单发现 → 真实只读 POST → 解析学期及课程成绩 → 再次直接调用。发现到真实验证约13分钟；二次调用结果一致，知识文件未改变。
