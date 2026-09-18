@@ -1,4 +1,4 @@
-# 按需 MCP 读取
+# 按需 MCP 读取与ClawBot发送
 
 `scripts/mcp_server.py` 使用 Python MCP SDK 的 stdio transport，仅在客户端调用时运行，不开放监听端口。工具调用相同的CLI，各来源的实际验收状态独立记录：
 
@@ -6,8 +6,9 @@
 | --- | --- |
 | `wechat_conversations` | 本人 Linux 微信本地会话与未读 |
 | `wechat_messages` | 精确会话的已同步消息，最多50条 |
+| `clawbot_send` | 以ClawBot身份向绑定本人发文字；长期授权，request_id防重复，实际送达已验证 |
 | `clawbot_updates` | 第三方SDK读取ClawBot单批新消息，最长40秒 |
-| `wecom_notifications` | 本机Android企微通知归档；MCP调用已验证，手机真实投递待验收，不是完整聊天 |
+| `wecom_notifications` | 本机Android企微通知归档；MCP调用已验证。本人手机为原生鸿蒙，通知接入已暂缓，真实投递未验证 |
 
 安装额外依赖并注册：
 
@@ -19,3 +20,5 @@ codex mcp add wechat-personal -- ~/.local/share/ncut-wechat-skills/bot-venv/bin/
 本机注册与真实MCP调用分别验证；修改配置不意味着当前已运行的对话会热加载工具。未加载时直接使用同等CLI，无需再登录。收到错误按所属能力处理，不启动新微信实例或聊天窗口自动化。
 
 本MCP封装复用现有账号，未另行用OneBot登录。OneBot本身不是微信客户端；第三方适配器与实际后端核对见[OneBot尝试](onebot.md)。尚未取得匹配当前Linux环境并保留既有登录的普通消息发送后端证据，原生发送保持未接通。
+
+2026-09-18新增发送后，真实stdio客户端已列出5个工具；使用同一发送操作ID调用`clawbot_send`返回已成功请求的结果且`replayed=true`，未重发。手机送达由本人确认，读回能力仍按来源区分。

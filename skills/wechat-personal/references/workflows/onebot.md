@@ -31,7 +31,7 @@
 
 - 普通微信的同类候选是Pad协议。除上述WeChatPadPro，[wechaty/puppet-padlocal](https://github.com/wechaty/puppet-padlocal)依赖PadLocal客户端及服务token；未取得token、未验证当前服务可申请或可用。[meteor-nb/Ipad860](https://github.com/meteor-nb/Ipad860)公开说明仍依赖来源未公开的`v08.dll`和Redis，不能因有Go源码就认定可直接在本机Linux运行。
 - [AstrBot当前个人微信适配说明](https://github.com/AstrBotDevs/AstrBot/blob/master/docs/zh/platform/weixin_oc.md)明确使用`openclaw-weixin`、要求手机ClawBot插件；[客户端](https://github.com/AstrBotDevs/AstrBot/blob/master/astrbot/core/platform/sources/weixin_oc/weixin_oc_client.py)使用`ilink_bot_token`。它不是普通好友/群聊的Pad协议后端。
-- 企微完整聊天尚未找到满足当前约束的公开可执行设备协议后端；普通成员也无会话存档权限。本人另行同意[Android通知转存](android-notifications.md)作补充，不能将补充结果计为完整聊天成功。
+- 企微完整聊天尚未找到满足当前约束的公开可执行设备协议后端；普通成员也无会话存档权限。先前[Android通知转存](android-notifications.md)补充已因本人手机更正为原生鸿蒙而暂缓，不能将补充结果计为完整聊天成功。
 
 ## 已安装的补充测试
 
@@ -44,3 +44,15 @@
 发送仅允许已绑定本人的ID、指定测试文字的一条回执；发送HTTP关闭自动重试，失败不会再发。收到真实指定测试文字之前不发送。私有凭证与context_token不输出或发布。
 
 已实测：OneBot `get_version_info`、`get_status`、`get_login_info`通过；真实iLink轮询成功返回空增量批次。首次本机WebSocket连接受默认代理影响，显式 `proxy=None` 后连通。临时进程常驻内存约127MiB。空批次和元信息接口不代表消息收发验收成功，最终状态以同日验收记录为准。
+
+## 本轮原生发送追加核对
+
+[yincongcyincong/wechat_chatter](https://github.com/yincongcyincong/wechat_chatter/blob/main/onebot/readme.md)有OneBot文字/图片发送，但依赖macOS微信与Frida Gadget；[wechat-mac-hook-classic](https://github.com/xiaoguiwucan/wechat-mac-hook-classic)要求Apple Silicon/macOS及指定4.1.11.53构建。两者均不能直接用于当前Linux4.1.1。[wechat-shot-bridge](https://github.com/zhusinian/wechat-shot-bridge)确有Linux4.1.1.4进程内入口，但实现仅调用截图界面，没有消息发送后端；未部署或套用其偏移发送。
+
+本轮已获准的验收是个人微信给文件传输助手发图片、给ClawBot发文字并由机器人接口检查入站。本机已准确定位filehelper，但会话查询没有找到ClawBot；发送后端尚未接通，两次个人身份发送均未执行。独立ClawBot机器人→本人文字已通过真实发送及本人收件确认，详见[发送契约](../capabilities/clawbot/send-text.md)，不能算普通OneBot完成。
+
+## Linux客户端版本核对（2026-09-18）
+
+本机包为`wechat-appimage 4.1.1-1`，desktop元数据为4.1.1；直接读取[Linux微信官网](https://linux.weixin.qq.com/)的当前HTML得到4.1.13，官方AppImage链接也正常响应。因此本机确实落后于官方发布，但官网未提供ClawBot支持说明，本轮未升级、未验证新版会话入口或原生发送后端。[腾讯仓库issue #167](https://github.com/Tencent/openclaw-weixin/issues/167)有其他用户报告跨设备ClawBot会话不显示，但它是用户报告、且涉及Mac，不能作为Linux新版必然支持或不支持的结论。
+
+`ilink-onebot`已存在ClawBot适配；其send_private_msg仍以机器人身份发给绑定用户，get_friend_list/群聊动作不支持，不能用来从本人原生微信向ClawBot或filehelper发消息。

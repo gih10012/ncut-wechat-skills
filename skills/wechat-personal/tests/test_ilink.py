@@ -130,6 +130,58 @@ class IlinkTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ilink.BotError):
                 ilink.api_origin(value)
 
+    def test_send_only_targets_bound_owner_and_repeated_id_does_not_resend(self):
+        self.seed(self.account, dict(self.credentials(), ilink_user_id='owner'))
+        args = ['send', '--text', 'test', '--request-id', 'one']
+        with patch.object(ilink, 'request', return_value={}) as request:
+            first = ilink.main(args, self.access)
+            again = ilink.main(args, self.access)
+            conflict = ilink.main(['send', '--text', 'different', '--request-id', 'one'], self.access)
+        request.assert_called_once()
+        msg = request.call_args.kwargs['body']['msg']
+        self.assertEqual(msg['to_user_id'], 'owner')
+        self.assertEqual(msg['item_list'][0]['text_item']['text'], 'test')
+        self.assertTrue(first['api_accepted']); self.assertFalse(first['delivery_verified'])
+        self.assertTrue(again['replayed'])
+        self.assertEqual(conflict['code'], 'BOT_SEND_REQUEST_ID_CONFLICT')
+        self.assertEqual((self.account.parent/'sends/one.json').stat().st_mode & 0o777, 0o600)
+
+    def test_uncertain_send_is_journaled_before_request_and_never_retried(self):
+        self.seed(self.account, dict(self.credentials(), ilink_user_id='owner'))
+        def fail(*args, **kwargs):
+            attempt = json.loads((self.account.parent/'sends/timeout.json').read_text())
+            self.assertEqual(attempt['client_id'], kwargs['body']['msg']['client_id'])
+            raise ilink.BotError('BOT_NETWORK_TIMEOUT')
+        with patch.object(ilink, 'request', side_effect=fail) as request:
+            result = ilink.main(['send', '--text', 'test', '--request-id', 'timeout'], self.access)
+            again = ilink.main(['send', '--text', 'test', '--request-id', 'timeout'], self.access)
+        request.assert_called_once()
+        self.assertTrue(result['outcome_unknown']); self.assertTrue(again['replayed'])
+
+    def test_context_is_cached_only_for_bound_owner_and_kept_private(self):
+        self.seed(self.account, dict(self.credentials(), ilink_user_id='owner'))
+        response = {'get_updates_buf': 'next', 'msgs': [
+            {'from_user_id': 'owner', 'to_user_id': 'bot-id', 'message_type': 1,
+             'context_token': 'private-owner-context'},
+            {'from_user_id': 'other', 'to_user_id': 'bot-id', 'message_type': 1,
+             'context_token': 'unrelated-context'}]}
+        with patch.object(ilink, 'request', return_value=response):
+            result = ilink.main(['updates'], self.access)
+        self.assertNotIn('context', json.dumps(result))
+        self.assertEqual(json.loads(self.account.read_text())['owner_context']['token'], 'private-owner-context')
+        with patch.object(ilink, 'request', return_value={}) as request:
+            sent = ilink.main(['send', '--text', 'test', '--request-id', 'context'], self.access)
+        self.assertEqual(request.call_args.kwargs['body']['msg']['context_token'], 'private-owner-context')
+        self.assertNotIn('private-owner-context', json.dumps(sent))
+
+    def test_send_validates_text_and_request_id_before_network(self):
+        self.seed(self.account, dict(self.credentials(), ilink_user_id='owner'))
+        with patch.object(ilink, 'request') as request:
+            for args in [['send'], ['send', '--text', 'test'],
+                         ['send', '--text', 'test', '--request-id', '../escape']]:
+                self.assertFalse(ilink.main(args, self.access)['ok'])
+        request.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

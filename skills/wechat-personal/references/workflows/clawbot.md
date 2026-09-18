@@ -18,6 +18,6 @@ uv pip install --python ~/.local/share/ncut-wechat-skills/bot-venv/bin/python -r
 3. `need_verifycode` 时使用本人手机显示的数字，保存到0600私有文件，传 `--verify-code-file /私有路径`；不猜数字、不写入公共知识。`expired` 停止当前二维码；本人在场时再显式刷新。
 4. `BOT_LOGIN_CONFIRMED` 后，先让本人给已绑定 ClawBot 发测试文字，再执行 `bot updates` 验证内容。扫码成功和空批次不能代替消息读取实测。
 
-凭证、二维码和增量游标在 `~/.local/state/wechat-personal/bots/<account>/`，权限0700/0600。默认SDK方法无消息发送；后续若扩展发送，仍须按具体目标与正文授权，不自动启用示例 echo bot。
+凭证、二维码和增量游标在 `~/.local/state/wechat-personal/bots/<account>/`，权限0700/0600。ClawBot读写已有本人长期授权，无需逐次询问。`bot send --account me --text '消息文字' --request-id '唯一操作ID'`以机器人身份向绑定本人发送；已于2026-09-18真实发送且本人确认收到。请求ID防止重复提交、超时处理和结果解释见[发送契约](../capabilities/clawbot/send-text.md)。不自动启用示例echo bot。本人入站消息中的回复上下文只保存于私有账号状态，不输出。
 
 GitHub选型（2026-09-17）：`photon-hq/qclaw-wechat-client` 已归档；`nightsailer/wechat-clawbot` 提供MCP/网关但文档基线仍为上游2.1.1；`epiral/weixin-bot` 是另一个轻量SDK。选用的SDK源码具有新版POST二维码、数字校验与直接底层方法，已在本机真实验证。第三方封装不会自动取得个人微信全部聊天权限。

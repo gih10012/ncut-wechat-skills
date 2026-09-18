@@ -11,6 +11,8 @@ note: "本人企微原生消息待接入；Linux 微信数据库读取不覆盖�
 
 先定位实际客户端或已授权接口，验证本人身份、会话列表和一个有界消息查询。不得把企业自建应用推送接口称为个人完整收件箱。
 
+当前设备与优先级：本人已更正手机为原生鸿蒙，手机通知接入暂缓，OpenHarmony方向留待后续；不再要求安装Android转发工具。本机旧Android缓存与当前手机系统是两件事。继续寻找无需手机转发、不依赖Windows常开、普通成员可用的轻量消息后端。
+
 2026-09-17已检查的局部证据：
 
 - 本人挂载Windows目录有WXWork 5.0.7.6005及两个账号数据目录，其中一个 `message.db` 当日更新。消息和会话库均非明文SQLite；看到文件不等于读取成功。
@@ -45,3 +47,13 @@ note: "本人企微原生消息待接入；Linux 微信数据库读取不覆盖�
 - [xlrpa/FlowBot](https://github.com/xlrpa/FlowBot)说明其Android实现依赖无障碍界面自动化；不符合当前日常消息能力不依赖UI的约束，未安装。
 
 以上只是适配器范围和依赖核对，未验收企微新消息。本人进一步确认只有普通成员权限、无法开通会话内容存档，因此该路线当前不可用，不再要求管理员开通。继续接入需要可执行且匹配现有环境的个人消息后端；不再重复要求缓存元信息检查，也不把企业应用/机器人测试改名为个人聊天成功。
+
+2026-09-18本人暂缓手机方案、要求其他轻量方法后的新增核对：
+
+- [BobbyCats/wecom-local](https://github.com/BobbyCats/wecom-local)：Rust单程序，提供会话、历史和搜索读取；当前依赖已登录macOS企微的运行时附加，直接数据库读取器仍未实现。它是真实源码候选，但不能在现有Linux环境直接运行，未安装。
+- [Hanson/WeworkMsg](https://github.com/Hanson/WeworkMsg)：Go服务和CLI可在Linux使用，但配置仍要求会话存档Secret及RSA私钥；本人现有权限不满足。二进制体积不代表可用权限或运行资源实测。
+- [onewesong/wx-agent](https://github.com/onewesong/wx-agent)的[动态MCP代码](https://github.com/onewesong/wx-agent/blob/main/src/mcp/wecom.ts)通过智能机器人请求`aibot_get_mcp_config`；含`msg`品类不能证明普通聊天历史可读。官方[消息skill](https://github.com/WecomTeam/wecom-cli/blob/main/skills/wecomcli-message/SKILL.md)仍明确是机器人可发送的会话范围，未发现本人全量聊天接口。
+- [pxbug/WeWorkIPadLogin](https://github.com/pxbug/WeWorkIPadLogin)：完整树含7个文件，主体是依赖UIKit/Objective-C运行时的iOS客户端插件；没有独立Linux消息接收后端。[veasion/wx-web-server](https://github.com/veasion/wx-web-server)的`src`仅有`.gitkeep`，其余为说明和截图，不能实际自建协议服务。
+- [Wechaty WorkPro](https://wechaty.js.org/docs/puppet-services/workpro)是另一个候选方向：本地Node接入层连接第三方Puppet Service，文档声明企微消息收发及联系人/群聊能力；[入门源码](https://github.com/RPAChat/workpro-getting-started/blob/main/index.ts)包含扫码、登录和消息事件。旧WXWork已弃用，不能沿用旧教程。2026-03-27[运营调整公告](https://github.com/wechaty/wechaty/issues/2822)将Token售卖、维护及支持转至RPAChat，当前自助入口为[token.rpachat.com](https://token.rpachat.com/)。这是托管消息后端候选，不是已找到可自建的开源协议实现；当前无已授权Token，尚未验证本人账号登录、消息范围、历史、资源占用或价格。现有文档/示例还要求关闭TLS，真实试用前需核实当前传输条件，不能照抄旧示例直接交付。
+
+本轮只完成源码、依赖和服务入口核对，没有新增企微消息验收成功记录；不要求本人为上述不适配候选更换手机、购买Mac或开通会话存档。

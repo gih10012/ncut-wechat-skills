@@ -1,6 +1,8 @@
-# Android企微通知补充
+# Android企微通知补充（当前暂缓）
 
-本人已选择把Android通知转存作为补充，完整企微聊天目标保留。此入口只覆盖手机实际产生并展示的通知标题和文字，不含未通知的聊天、隐藏正文、原始媒体或历史收件箱。标题不能充当可信聊天ID。
+2026-09-18本人明确手机为原生鸿蒙，要求手机接入留待以后。本方案及安装/验收待办已暂缓，不再提示安装SmsForwarder，不启动接收；OpenHarmony方向以后按实际设备接口另行研究，不能假定Android APK可用。下文仅保留已实现的Android方案说明，完整企微聊天目标保留。
+
+此入口只覆盖手机实际产生并展示的通知标题和文字，不含未通知的聊天、隐藏正文、原始媒体或历史收件箱。标题不能充当可信聊天ID。
 
 手机侧使用 [SmsForwarder v3.5.0](https://github.com/pppscn/SmsForwarder/releases/tag/v3.5.0)。已核对该tag的 [NotificationService](https://github.com/pppscn/SmsForwarder/blob/v3.5.0/app/src/main/kotlin/cn/ppps/forwarder/service/NotificationService.kt) 及 [WebhookUtils](https://github.com/pppscn/SmsForwarder/blob/v3.5.0/app/src/main/kotlin/cn/ppps/forwarder/utils/sender/WebhookUtils.kt)：通过Android通知监听取得包名、标题和文字，Webhook支持JSON模板和自定义认证头。业务执行不使用聊天界面点击。
 
