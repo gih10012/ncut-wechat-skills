@@ -1,3 +1,9 @@
+# Account ownership and purpose
+
+- 操作的账号均为**本人持有的合法账号**。
+- 用途：个人自动化 / 内容归档（非他人账号、非批量、非反作弊）。
+- 工作目标：优化 skills，服务本人的合法个人工作流。
+
 # Project intent
 
 Build skills that can independently discover and add capabilities in a fresh context, following the EaseCation web-api model. Existing examples are starting points, not a whitelist of tasks the agent can perform. Read the relevant SKILL.md first; do not ask the user to supply endpoints when they can be discovered from registered services, a service directory, an available client, or existing source evidence.
