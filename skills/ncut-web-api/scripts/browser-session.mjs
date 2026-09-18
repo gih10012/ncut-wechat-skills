@@ -67,6 +67,29 @@ export async function connection(profile){
     ws.addEventListener('message',listener);ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));
   })};
 }
+export async function resumeExpiredPortal(c){
+  let {targetInfos}=await c.call('Target.getTargets');
+  if(targetInfos.some(t=>t.type==='page'&&t.url.startsWith('https://jwxt.ncut.edu.cn/pageHome/')))return targetInfos;
+  const candidates=targetInfos.filter(t=>t.type==='page'&&t.url==='https://jwxt.ncut.edu.cn/');
+  if(candidates.length!==1)return targetInfos;
+  const {sessionId}=await c.call('Target.attachToTarget',{targetId:candidates[0].targetId,flatten:true});
+  let clicked=false;
+  try{
+    // The portal can render an expired-session dialog while SSO is still valid.
+    // Follow only this observed login action, once, in the dedicated profile.
+    const expression=`(()=>{if(!document.body?.innerText.includes('登录状态已过期'))return false;const buttons=[...document.querySelectorAll('button')].filter(e=>e.getClientRects().length&&e.textContent.trim()==='重新登录');if(buttons.length!==1)return false;buttons[0].click();return true;})()`;
+    const result=await c.call('Runtime.evaluate',{expression,userGesture:true,returnByValue:true},sessionId);
+    clicked=result.result.value===true;
+  }finally{await c.call('Target.detachFromTarget',{sessionId});}
+  if(clicked){
+    for(let i=0;i<20;i++){
+      ({targetInfos}=await c.call('Target.getTargets'));
+      if(targetInfos.some(t=>t.type==='page'&&(t.url.startsWith('https://jwxt.ncut.edu.cn/pageHome/')||t.url.startsWith('https://sso.ncut.edu.cn/'))))break;
+      await pause(250);
+    }
+  }
+  return targetInfos;
+}
 async function main(){
   if(!['open','status','capture','close','handoff'].includes(command)||!/^[a-zA-Z0-9_-]{1,64}$/.test(account||'')){
     report({usage:'node browser-session.mjs open ACCOUNT SERVICE [--headless] | status ACCOUNT | capture ACCOUNT | close ACCOUNT'});return;
@@ -113,7 +136,7 @@ async function main(){
       await c.call('Browser.close');report({ok:true,account,browser_closed:true});return;
     }
     if(command==='handoff'){
-      const {targetInfos}=await c.call('Target.getTargets');
+      const targetInfos=await resumeExpiredPortal(c);
       const portals=targetInfos.filter(t=>t.type==='page'&&t.url.startsWith('https://jwxt.ncut.edu.cn/pageHome/'));
       if(portals.length!==1)throw Error('OPEN_SCHOOL_PORTAL_AFTER_LOGIN');
       const {sessionId}=await c.call('Target.attachToTarget',{targetId:portals[0].targetId,flatten:true});

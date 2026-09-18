@@ -35,3 +35,7 @@ HTTP 客户端不自动跟随任何重定向，防止 bearer/请求体错误转�
 实现依据：[Chrome 独立调试资料目录](https://developer.chrome.com/blog/remote-debugging-port)、[Chrome DevTools Storage 协议](https://chromedevtools.github.io/devtools-protocol/tot/Storage/)。这里的 profile 只是普通本机文件夹，不是虚拟卷。
 
 2026-09-15 修复：专用 Chrome 重开会丢弃会话 Cookie。新窗口现在先开空白页，将账号文件中有效且属于学校域的 Cookie 恢复后再访问入口；已有窗口只补缺失项，保留其新 Cookie。本次补回缺失 SSO Cookie 后无需本人再次认证即进入教务并完成 finish。`login start` 不再将单纯开窗标为需要用户登录；只有实际认证页未恢复时才交接。4 项 Cookie 恢复行为测试通过。
+
+2026-09-18发现并修复另一种续接状态：教务根页面显示“登录状态已过期”，但已保存的SSO仍可用。实际点击该提示的“重新登录”后进入门户，再完成本科菜单换票，课表接口验证成功且窗口关闭，全程无需本人扫码。`handoff`现会在唯一教务根页面、已知过期提示和唯一可见按钮同时匹配时执行一次该登录动作；其他页面及歧义按钮不操作。这一新增自动分支有离线回归覆盖，实际恢复证据来自上述人工诊断后续接。
+
+若返回 `SCHOOL_HANDOFF_NOT_READY`，先用 `login status` 检查已打开的本科页面；若页面随后加载完成，再 `login finish` 捕获并验证，不重新启动扫码。页面出现仍不等于业务已成功。
