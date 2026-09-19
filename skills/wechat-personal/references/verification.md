@@ -19,3 +19,5 @@ Linux 微信本地会话列表、名称查询、近期消息正文/发送人/时
 2026-09-18追加：ClawBot文字发送命令真实返回服务端消息ID，本人确认手机收到，机器人→本人发送通过。个人微信OneBot的图片/文字发送仍未执行、未通过；两条路径单独记录，见[发送契约](capabilities/clawbot/send-text.md)。
 
 2026-09-19：Linux微信已更新为4.1.13，复用原密钥读取文件传输助手和ClawBot历史成功。补充OneBot真实收到本人升级后发送的文字并发出回执，已在Linux微信数据库中独立读回对应新消息；临时桥接退出。原生身份发送依然未接通，详见[OneBot追加验收](workflows/onebot.md)。
+
+2026-09-19媒体验收：本人确认机器人发来的TXT可打开、PNG显示正常；真实入站Excel、JPEG和语音通过iLink收到并下载解密，Excel实际解析、图片打开查看、语音SILK头有效，图片stdio MCP下载与CLI哈希一致。语音没有说话，不宣称转写准确。本人报告原生表情包和公众号卡片均无法从当前客户端发给ClawBot，保持未接通。临时接收已退出，具体范围见[媒体下载](capabilities/clawbot/media.md)及[媒体发送](capabilities/clawbot/send-media.md)。原生个人身份发送仍未完成。

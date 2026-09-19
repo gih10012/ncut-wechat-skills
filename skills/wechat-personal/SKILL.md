@@ -23,6 +23,8 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - ClawBot文件/图片：`bot send --file '/路径' --request-id '唯一ID'`，图片改用`--image`。已真实发送且本人确认文件能打开、图片显示正常；命中[媒体发送](references/capabilities/clawbot/send-media.md)直接调用。`bot updates`会私存媒体引用并给出`attachment_id`，可用`bot download --attachment-id '返回的ID'`下载；真实入站Excel、JPEG及语音已下载解密，Excel正文与图片已实际读取，语音仅确认SILK文件，转写未验收。使用updates的入站引用；出站附件引用回取曾失败。表情包、公众号分享卡片由本人确认当前客户端发不了，保留目标，不能把普通图片/链接替代算作完成。详见[媒体契约](references/capabilities/clawbot/media.md)。
 - 已配置MCP时可直接用 `wechat_conversations`、`wechat_messages`、`clawbot_updates`、`clawbot_send`、`clawbot_send_media`、`clawbot_download`，与上述命令共用账号；安装和边界见 [MCP入口](references/workflows/mcp.md)。
 
+一句话询问多种动作或格式时，分别检索并汇总状态。例如“ClawBot能发文件、下载附件、收表情包和公众号卡片吗”应拆为`ClawBot发文件`、`ClawBot下载`、`ClawBot表情包`、`ClawBot公众号卡片`。当前关键词检索不理解整句多意图，单次只命中`clawbot-updates`不能据此判定其他格式不存在，也不能用已验证项覆盖未接通项；已列出的契约可直接读取，无需重新探索接口。
+
 新内部网页按 [业务 API 接入](references/workflows/embedded-web.md) 处理，确实只有小程序入口时才看 [小程序边界](references/workflows/mini-program.md)。缺项发现限于当前业务请求，不把查询扩大为通用客户端工程。
 
 单项新能力最多探索15分钟实际工作时间；切换路线不重置，等待本人认证不计入。到点报告证据、缺项和后续选项。界面仅用于必要登录和接口发现，日常能力通过 HTTP、已有命令或本机数据执行。长期路线图留在仓库 README，不自动串行推进。

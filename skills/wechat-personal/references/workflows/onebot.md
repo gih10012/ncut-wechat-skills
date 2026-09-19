@@ -68,3 +68,19 @@
 普通微信身份发送仍未接通：新版未观察到微信进程的TCP发送监听，D-Bus没有可调用的消息方法。二进制新增观察到`message::send_text_message`、`message::send_message`等内部字符串和抽象Unix IPC，但尚未取得外部调用、参数及认证契约，不能据字符串执行发送或把它写成可用API。本轮没有向filehelper发送图片，也没有代本人向ClawBot发送文字；真实入站来自本人升级后自己发送的消息。
 
 另核对[lichaohuai/wechat-protocol-gateway](https://github.com/lichaohuai/wechat-protocol-gateway)：仓库明确只有接口调用示例，不提供后端代码、服务地址或凭证，不能直接部署验证。未因此注册第三方、联系他人或扩大企微支线。
+
+## 2026-09-19按NapCat同类后端复核
+
+本人要求优先寻找像[NapCatQQ](https://github.com/NapNeko/NapCatQQ)这样的实际协议端。筛选对象是能以本人身份给普通好友/群聊收发的后端，而不是只声明支持OneBot的上层平台。下面仍为公开源码/部署证据，不是本人账号登录与发送成功。
+
+- [aixed/WeChat-Hook](https://github.com/aixed/WeChat-Hook)：确有客户端Hook DLL、HTTP文本/图片/XML发送接口及相关源码；当前README目标为Windows x64微信4.1.10.27，需加载version.dll。结构上是同类，但不适配现有Linux4.1.13；未改动客户端或运行DLL。
+- [jwping/wxbot](https://github.com/jwping/wxbot)：明确包含好友/群聊文本、图片和文件API；其Linux部署依赖Docker/Wine和Windows微信，免注入版本说明为3.9.8.25，不是原生Linux微信后端，未部署。
+- [ThePeppy/wechat-api-ipad](https://github.com/ThePeppy/wechat-api-ipad/tree/08c98614add19653388d76d821e84c7d6aa620d3)：有Go协议和newsendmsg组包源码，最后提交为2024-01-25；README列MySQL/Redis依赖，实际main.go强制初始化并Ping Redis，配置ServerName仍为7.0.12。未验证当前协议登录/收发或内存，不因源码公开就称可用。
+- [openwechat](https://github.com/eatmoreapple/openwechat)：纯Go SDK，go.mod未列外部依赖，具有好友/群聊和文件/图片发送方法；实际走webwx接口，不是现有Linux客户端Hook。普通网页模式需要本人账号真实登录资格，尚未测试，不能把生成二维码当作收发成功。本人离开时不生成短期二维码或替换已有桌面会话。
+- [WeChatPadPro](https://github.com/WeChatPadPro/WeChatPadPro/releases/tag/v2.01)：公开Linux amd64发行包v2.01为2025-08-22的861版本，README中的较新868指向赞助群；协议核心未在公开源码树中找到。[官方compose](https://github.com/WeChatPadPro/WeChatPadPro/blob/main/deploy/docker-compose.yml)同时启动MySQL8、Redis6及协议服务，README标最低2GB内存。文档中的ADMIN_KEY可在本地生成AuthKey，不能仅因有key就断言必须购买远程授权。包下载只取得部分数据，Range请求返回501，未完成包内配置/远程授权核验，未运行。上述依赖是官方部署要求，不是实测的最小运行要求。
+- [Gewechat](https://github.com/Devo919/Gewechat)官方已声明停止服务、镜像及部署支持，公开树不含完整后端；旧调用SDK不能使其恢复。[GeWe API](https://doc.geweapi.com/doc-3146201)是另一条托管服务路线，供应商文档提供7天试用、Token、扫码节点和Webhook；还未取得本人试用账号，价格、当前登录及稳定性未验，不代注册或转交已有微信登录态。
+- [WeChatFerry](https://github.com/lich0821/WeChatFerry)于2026-07-10归档，公开版本配套Windows微信3.9.12.51；Linux RPC客户端并不包含Linux微信发送后端。
+
+本机Linux内部入口也已做有限静态复核：抽象Unix IPC观察到TOKEN/OPEN/CMD:show解析，没有定位到消息调用分发；FunctionCallManager相关内部发送注册没有对应动态导出或当前TCP监听。尚无外部调用契约，不在这些线索上扩展未验证注入工程。版本、哈希与定位证据仅私存；保持已有登录。
+
+本轮有限探索结束，普通微信发送保持未接通。后续最小验收是本人在线时尝试openwechat普通网页登录资格，若接口明确拒绝则记录并结束该路线；登录成功后才做已授权的filehelper测试，收到真实消息才计成功。Windows Hook需要匹配的Windows微信环境，PadPro需要接受其依赖，GeWe需要本人选择供应商并取得试用凭证；这些条件变化后再继续对应路线，不重复枚举仓库，不提前部署常驻。此顺序按当前Linux、轻量约束选择，不是对候选当前可用性的保证。
