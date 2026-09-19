@@ -14,12 +14,16 @@
       "transport": "ilink_https_third_party_sdk",
       "auth": "Owner QR binding; isolated private bot credentials; actual API baseurl from login response",
       "status": "partially_verified",
-      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate",
+      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate; file/PNG upload and send accepted with local message entries; opening/rendering and inbound media download remain unverified; iLink operations independent of desktop",
       "capabilities": {
         "login": "runtime_verified",
         "updates": "runtime_verified",
         "send": "runtime_verified",
-        "history": "runtime_verified"
+        "history": "runtime_verified",
+        "media-send": "partially_verified",
+        "media-download": "not_runtime_verified",
+        "native-sticker": "not_connected",
+        "share-card": "not_connected"
       }
     },
     {

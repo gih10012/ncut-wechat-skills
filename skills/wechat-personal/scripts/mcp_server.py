@@ -20,10 +20,10 @@ POLL = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=
 SEND = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=True)
 
 
-def invoke(args):
+def invoke(args, timeout=50):
     try:
         result = subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True,
-                                text=True, timeout=50)
+                                text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return {'ok': False, 'code': 'COMMAND_TIMEOUT'}
     try:
@@ -68,6 +68,21 @@ def wecom_notifications(limit: int = 20, account: str = 'me') -> dict:
 def clawbot_send(text: str, request_id: str, account: str = 'me') -> dict:
     """Send text as ClawBot to its bound owner; standing authorization applies. Reuse request_id to retrieve an attempt without resending. API acceptance does not prove delivery."""
     return invoke(['bot', 'send', '--account', account, '--text=' + text, '--request-id', request_id])
+
+
+@server.tool(annotations=SEND)
+def clawbot_send_media(path: str, request_id: str, kind: str = 'file', account: str = 'me') -> dict:
+    """Send a local file/image/video as ClawBot to its bound owner, without desktop WeChat. Standing authorization applies. Default limit 32 MiB. Native stickers/cards are not verified. Reuse request_id to inspect without resending."""
+    if kind not in ('file', 'image', 'video'):
+        return {'ok': False, 'code': 'BOT_UNSUPPORTED_MEDIA_KIND'}
+    return invoke(['bot', 'send', '--account', account, '--' + kind + '=' + path,
+                   '--request-id', request_id], timeout=75)
+
+
+@server.tool(annotations=POLL)
+def clawbot_download(attachment_id: str, account: str = 'me') -> dict:
+    """Download/decrypt a cached ClawBot attachment into private local storage, without desktop WeChat. IDs come from updates/send; default limit 32 MiB. Returns local path and SHA-256."""
+    return invoke(['bot', 'download', '--account', account, '--attachment-id', attachment_id])
 
 
 if __name__ == '__main__':

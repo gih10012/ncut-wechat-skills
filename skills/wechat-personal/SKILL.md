@@ -18,9 +18,10 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 个人微信身份发送、企微消息：当前未接通。仅当前任务确实需要时按 [消息接入](references/workflows/messages.md) 检查局部新证据；不启动整个平台接入工程。已有读取覆盖当前客户端已同步的本地消息，不保证云端完整历史；图片、语音、视频仅标类型。
 - 企微通知补充已暂缓：本人手机为原生鸿蒙，先前Android假设已更正；不再提示安装SmsForwarder或启动手机验收。现有`notifications list --account me --limit 20`与MCP `wecom_notifications`仅保留本机归档读取，真实手机投递未验证；旧方案见[Android通知](references/workflows/android-notifications.md)。OpenHarmony手机接入留待后续，当前不扩展手机工程。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定与实际接收文字。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
-- ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。发送后优先自行核对新增消息的正文、时间和发送人；不再默认要求本人盯手机。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
+- ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。本地读回仅在用户要求验收或排查时可选使用；电脑微信离线不影响ClawBot经iLink独立收发，不因本地未读回阻断或判失败。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
 - ClawBot给本人发消息：`python3 "$WX" bot send --account me --text '消息文字' --request-id '本次唯一ID'`，已实测送达。本人已长期授权此通道读写；同一操作复用同一ID不会重发。仅向绑定本人发送，不是以个人微信身份给好友发消息；细节见[发送契约](references/capabilities/clawbot/send-text.md)。
-- 已配置MCP时可直接用 `wechat_conversations`、`wechat_messages`、`clawbot_updates`、`clawbot_send`，与上述命令共用账号；安装和边界见 [MCP入口](references/workflows/mcp.md)。
+- ClawBot文件/图片：`bot send --file '/路径' --request-id '唯一ID'`，图片改用`--image`。上传、API受理和本地消息出现已实测，接收端打开效果待确认。`bot updates`会私存媒体引用并给出`attachment_id`，可用`bot download --attachment-id '返回的ID'`下载；当前CDN真实回取失败，下载尚未验收。表情包、公众号分享卡片保留目标，不能把普通图片/链接替代算作完成。详见[媒体契约](references/capabilities/clawbot/media.md)。
+- 已配置MCP时可直接用 `wechat_conversations`、`wechat_messages`、`clawbot_updates`、`clawbot_send`、`clawbot_send_media`、`clawbot_download`，与上述命令共用账号；安装和边界见 [MCP入口](references/workflows/mcp.md)。
 
 新内部网页按 [业务 API 接入](references/workflows/embedded-web.md) 处理，确实只有小程序入口时才看 [小程序边界](references/workflows/mini-program.md)。缺项发现限于当前业务请求，不把查询扩大为通用客户端工程。
 

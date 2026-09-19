@@ -11,7 +11,9 @@ uv pip install --python ~/.local/share/ncut-wechat-skills/bot-venv/bin/python -r
 
 日常命令沿用 `python3 "$WX" bot updates --account me --limit 20`，入口自动使用独立环境；已有登录直接读取，不再生成二维码。
 
-需要历史或验证机器人回执时，使用`native messages --account me --chat '微信ClawBot' --limit 20`读取Linux微信已同步的双向会话。4.1.13已实测支持这条本机读取；不再把旧版查不到会话当作当前结论。发送后先按[历史与读回](../capabilities/clawbot/read-history.md)自行验证，再决定是否需要本人确认。SDK增量读取与本机历史是两种不同来源。
+文件与图片使用`bot send --file /路径`或`--image /路径`，仍需唯一`--request-id`。媒体下载与原生表情包/分享卡片的实际状态见[媒体契约](../capabilities/clawbot/media.md)，不是仅文字通道。所有iLink调用独立于桌面微信。
+
+需要历史或验证机器人回执时，使用`native messages --account me --chat '微信ClawBot' --limit 20`读取Linux微信已同步的双向会话。4.1.13已实测支持这条本机读取；不再把旧版查不到会话当作当前结论。本地历史仅用于可选验收/排查，不是ClawBot发送前提或每次发送后的硬性检查；电脑微信离线时仍直接经iLink独立收发。SDK增量读取与本机历史是两种不同来源。
 
 仅缺凭证或认证失效时：
 

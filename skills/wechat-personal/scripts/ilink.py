@@ -116,18 +116,39 @@ def public_message(msg):
             output['text'] = voice.get('text', '')
         else:
             output['content_downloaded'] = False
+            kind = {2: 'image', 4: 'file', 5: 'video'}.get(item.get('type'))
+            content = item.get(kind + '_item', {}) if kind else {}
+            if not isinstance(content, dict):
+                raise BotError('BOT_INVALID_MEDIA_ITEM')
+            if kind == 'file':
+                output['file_name'] = content.get('file_name', '')
+                output['size'] = content.get('len')
+        if item.get('type') not in (1, 2, 3, 4, 5):
+            output['supported'] = False
+            output['note'] = 'Unrecognized protocol item; retained privately, not discarded'
         value['items'].append(output)
     return value
 
 
 def send_owner(args, access, root, state):
     text = access.private_read(args.text_file) if args.text_file else args.text
-    if not isinstance(text, str) or not text.strip() or len(text.encode('utf-8')) > 16000:
+    media_path = getattr(args, 'file', None) or getattr(args, 'image', None) or getattr(args, 'video', None)
+    kind = 'image' if getattr(args, 'image', None) else 'video' if getattr(args, 'video', None) else 'file'
+    data = None
+    if media_path:
+        if not media_path.is_file() or not 0 < media_path.stat().st_size <= args.max_bytes:
+            raise BotError('BOT_INVALID_MEDIA_FILE_OR_SIZE')
+        with media_path.open('rb') as stream:
+            data = stream.read(args.max_bytes + 1)
+        if len(data) > args.max_bytes:
+            raise BotError('BOT_MEDIA_TOO_LARGE')
+    elif not isinstance(text, str) or not text.strip() or len(text.encode('utf-8')) > 16000:
         raise BotError('BOT_INVALID_TEXT')
     if not args.request_id or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', args.request_id):
         raise BotError('BOT_SEND_REQUEST_ID_REQUIRED')
     owner = nonempty(state, 'ilink_user_id')
-    fingerprint = hashlib.sha256(json.dumps([state.get('ilink_bot_id'), owner, text],
+    payload = {'kind': kind, 'name': media_path.name, 'sha256': hashlib.sha256(data).hexdigest()} if data is not None else text
+    fingerprint = hashlib.sha256(json.dumps([state.get('ilink_bot_id'), owner, payload],
                                             ensure_ascii=False).encode()).hexdigest()
     attempt_path = root / 'sends' / (args.request_id + '.json')
     attempt = read(access, attempt_path)
@@ -150,16 +171,24 @@ def send_owner(args, access, root, state):
     save(access, attempt_path, attempt)
     result = {'request_id': args.request_id, 'client_id': client_id,
               'scope': 'ClawBot to bound owner only', 'delivery_verified': False,
-              'automatic_retry': False}
+              'automatic_retry': False, 'desktop_required': False}
+    submitted = False
     try:
+        if data is not None:
+            from ilink_media import upload, cache_item
+            item = upload(state, data, kind, media_path.name)
+            result['attachment_id'] = cache_item(access, root, item, 'out:' + client_id)
+            result.update(kind=kind, size=len(data), file_name=media_path.name)
+            msg['item_list'] = [item]
+        submitted = True
         value = request(state['baseurl'], 'sendmessage', token=state['bot_token'], body={'msg': msg})
         result.update(ok=True, code='BOT_SEND_ACCEPTED', api_accepted=True)
         if isinstance(value.get('message_id'), (str, int)):
             result['server_message_id'] = value['message_id']
     except BotError as exc:
-        unknown = str(exc) in ('BOT_NETWORK_TIMEOUT', 'BOT_NETWORK_ERROR', 'BOT_INVALID_RESPONSE') or str(exc).startswith('BOT_HTTP_5')
+        unknown = submitted and (str(exc) in ('BOT_NETWORK_TIMEOUT', 'BOT_NETWORK_ERROR', 'BOT_INVALID_RESPONSE') or str(exc).startswith('BOT_HTTP_5'))
         result.update(ok=False, code=str(exc), api_accepted=None if unknown else False,
-                      outcome_unknown=unknown)
+                      outcome_unknown=unknown, message_submission_attempted=submitted)
     attempt['result'] = result
     save(access, attempt_path, attempt)
     return result
@@ -170,6 +199,9 @@ def run(args, access):
     root = access.STATE / 'bots' / args.account
     state_path, pending_path = root / 'account.json', root / 'login.json'
     state, pending = read(access, state_path), read(access, pending_path)
+    if args.operation == 'download':
+        from ilink_media import download
+        return download(access, root, args.attachment_id, args.max_bytes)
     if args.operation == 'login':
         if state.get('bot_token') and not args.refresh:
             return {'ok': True, 'code': 'BOT_CREDENTIALS_PRESENT', 'login_verified': False,
@@ -238,6 +270,17 @@ def run(args, access):
             state['cursor'] = cursor
     selected, remaining = queue[:args.limit], queue[args.limit:]
     messages = [public_message(m) for m in selected]
+    from ilink_media import cache_item
+    for raw, public in zip(selected, messages):
+        for index, (item, output) in enumerate(zip(raw.get('item_list', []), public['items'])):
+            identity = json.dumps([state.get('ilink_bot_id'), raw.get('message_id'), index, item], sort_keys=True)
+            attachment = cache_item(access, root, item, identity)
+            if attachment:
+                output['attachment_id'] = attachment
+            elif item.get('type') not in (1, 2, 3, 4, 5):
+                identifier = hashlib.sha256(identity.encode()).hexdigest()
+                save(access, root / 'unrecognized' / (identifier + '.json'), item)
+                output['raw_item_id'] = identifier
     for msg in selected:
         if (state.get('ilink_user_id') and msg.get('from_user_id') == state['ilink_user_id']
                 and msg.get('to_user_id') == state.get('ilink_bot_id')
@@ -249,13 +292,14 @@ def run(args, access):
     # Cursor and remaining messages advance together only after a validated response.
     save(access, state_path, state)
     return {'ok': True, 'items': messages, 'remaining_buffered': len(remaining),
-            'scope': 'ClawBot channel only', 'personal_inbox': False, 'automatic_reply': False}
+            'scope': 'ClawBot channel only', 'personal_inbox': False, 'automatic_reply': False,
+            'desktop_required': False}
 
 
 def main(argv, access):
     from pathlib import Path
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['login', 'finish', 'updates', 'send'])
+    parser.add_argument('operation', choices=['login', 'finish', 'updates', 'send', 'download'])
     parser.add_argument('--account', default='me')
     parser.add_argument('--refresh', action='store_true', help='Explicitly request a new login QR')
     parser.add_argument('--verify-code-file', type=Path, help='Owner-only file containing the displayed pairing digits')
@@ -263,10 +307,17 @@ def main(argv, access):
     content = parser.add_mutually_exclusive_group()
     content.add_argument('--text')
     content.add_argument('--text-file', type=Path, help='Private UTF-8 text file')
+    content.add_argument('--file', type=Path, help='Send as a file attachment, including GIF or images')
+    content.add_argument('--image', type=Path, help='Send as an image message')
+    content.add_argument('--video', type=Path, help='Send as a video message')
+    parser.add_argument('--attachment-id', help='Opaque attachment identifier returned by updates/send')
+    parser.add_argument('--max-bytes', type=int, default=32 * 1024 * 1024)
     parser.add_argument('--request-id', help='Unique send operation ID; reuse it to inspect, never to resend')
     args = parser.parse_args(argv)
     if not 1 <= args.limit <= 100:
         raise ValueError('Use --limit between 1 and 100')
+    if not 1 <= args.max_bytes <= 100 * 1024 * 1024:
+        raise ValueError('Use --max-bytes between 1 and 104857600')
     try:
         access.account_path(args.account)
         root = access.STATE / 'bots' / args.account

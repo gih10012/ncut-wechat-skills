@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'scripts'))
 sys.path.insert(0, str(ROOT.parent/'ncut-web-api/scripts'))
 import ilink
+import ilink_media
 import ncut
 
 
@@ -181,6 +182,58 @@ class IlinkTests(unittest.TestCase):
                          ['send', '--text', 'test', '--request-id', '../escape']]:
                 self.assertFalse(ilink.main(args, self.access)['ok'])
         request.assert_not_called()
+
+    def test_media_upload_send_and_replay_are_owner_scoped(self):
+        self.seed(self.account, dict(self.credentials(), ilink_user_id='owner'))
+        source = self.root/'sample.txt'; source.write_bytes(b'hello')
+        item = {'type': 4, 'file_item': {'file_name': 'sample.txt', 'len': '5',
+                'media': {'aes_key': 'private-key', 'encrypt_query_param': 'private-reference'}}}
+        args = ['send', '--file', str(source), '--request-id', 'media']
+        with patch.object(ilink_media, 'upload', return_value=item) as upload, patch.object(ilink, 'request', return_value={}) as request:
+            first = ilink.main(args, self.access)
+            again = ilink.main(args, self.access)
+            source.write_bytes(b'changed')
+            conflict = ilink.main(args, self.access)
+        upload.assert_called_once(); request.assert_called_once()
+        self.assertEqual(request.call_args.kwargs['body']['msg']['to_user_id'], 'owner')
+        self.assertEqual(request.call_args.kwargs['body']['msg']['item_list'], [item])
+        self.assertTrue(first['api_accepted']); self.assertTrue(again['replayed'])
+        self.assertFalse(first['desktop_required'])
+        self.assertNotIn('private-', json.dumps(first))
+        self.assertEqual(conflict['code'], 'BOT_SEND_REQUEST_ID_CONFLICT')
+
+    def test_failed_upload_does_not_submit_message_or_retry(self):
+        self.seed(self.account, dict(self.credentials(), ilink_user_id='owner'))
+        source = self.root/'sample.txt'; source.write_bytes(b'hello')
+        args = ['send', '--file', str(source), '--request-id', 'failed-media']
+        with patch.object(ilink_media, 'upload', side_effect=ilink.BotError('BOT_MEDIA_NETWORK_ERROR')) as upload, patch.object(ilink, 'request') as request:
+            result = ilink.main(args, self.access)
+            again = ilink.main(args, self.access)
+        request.assert_not_called(); upload.assert_called_once()
+        self.assertFalse(result['message_submission_attempted'])
+        self.assertFalse(result['outcome_unknown']); self.assertTrue(again['replayed'])
+
+    def test_inbound_media_and_unknown_items_retained_without_credential_leak(self):
+        self.seed(self.account, self.credentials())
+        response = {'get_updates_buf': 'next', 'msgs': [{'message_id': 'media', 'item_list': [
+            {'type': 2, 'image_item': {'media': {'aes_key': 'private-key', 'encrypt_query_param': 'private-reference'}}},
+            {'type': 99, 'unknown_item': {'secret': 'private-unknown'}}]}]}
+        with patch.object(ilink, 'request', return_value=response):
+            result = ilink.main(['updates'], self.access)
+        items = result['items'][0]['items']
+        self.assertNotIn('private-', json.dumps(result))
+        self.assertEqual((self.account.parent/'media'/(items[0]['attachment_id']+'.json')).stat().st_mode & 0o777, 0o600)
+        self.assertFalse(items[1]['supported'])
+        self.assertIn('private-unknown', (self.account.parent/'unrecognized'/(items[1]['raw_item_id']+'.json')).read_text())
+        self.assertEqual(json.loads(self.account.read_text())['cursor'], 'next')
+
+    def test_download_rejects_path_traversal_and_untrusted_origin(self):
+        with self.assertRaises(ilink.BotError):
+            ilink_media.download(self.access, self.account.parent, '../account', 100)
+        for url in ('http://cdn.weixin.qq.com/a', 'https://weixin.qq.com.example.com/a',
+                    'https://user@cdn.weixin.qq.com/a', 'https://cdn.weixin.qq.com:444/a'):
+            with self.subTest(url=url), self.assertRaises(ilink.BotError):
+                ilink_media.cdn_url(url)
 
 
 if __name__ == '__main__':
