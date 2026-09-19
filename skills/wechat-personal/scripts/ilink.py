@@ -114,6 +114,8 @@ def public_message(msg):
             if not isinstance(voice, dict):
                 raise BotError('BOT_INVALID_VOICE_ITEM')
             output['text'] = voice.get('text', '')
+            output['transcription_source'] = 'service'
+            output['transcription_verified'] = False
         else:
             output['content_downloaded'] = False
             kind = {2: 'image', 4: 'file', 5: 'video'}.get(item.get('type'))
@@ -198,10 +200,10 @@ def run(args, access):
     access.account_path(args.account)  # shared account alias validation
     root = access.STATE / 'bots' / args.account
     state_path, pending_path = root / 'account.json', root / 'login.json'
-    state, pending = read(access, state_path), read(access, pending_path)
     if args.operation == 'download':
         from ilink_media import download
         return download(access, root, args.attachment_id, args.max_bytes)
+    state, pending = read(access, state_path), read(access, pending_path)
     if args.operation == 'login':
         if state.get('bot_token') and not args.refresh:
             return {'ok': True, 'code': 'BOT_CREDENTIALS_PRESENT', 'login_verified': False,
@@ -325,6 +327,10 @@ def main(argv, access):
         (access.STATE / 'bots').chmod(0o700)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         root.chmod(0o700)
+        # Downloads read immutable attachment references and atomically replace
+        # local files. They do not consume the cursor or mutate login/send state.
+        if args.operation == 'download':
+            return run(args, access)
         fd = os.open(root/'command.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:
             try:

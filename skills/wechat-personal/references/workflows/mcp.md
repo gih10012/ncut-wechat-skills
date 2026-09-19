@@ -8,8 +8,8 @@
 | `wechat_messages` | 精确会话的已同步消息，最多50条 |
 | `clawbot_send` | 以ClawBot身份向绑定本人发文字；长期授权，request_id防重复，实际送达已验证 |
 | `clawbot_updates` | 第三方SDK读取ClawBot单批新消息，最长40秒 |
-| `clawbot_send_media` | 本地文件/图片/视频发给绑定本人；文件/图片API受理已实测，接收端打开待确认；视频未实测 |
-| `clawbot_download` | 按attachment_id下载解密到私有目录；实现已补，真实CDN下载验收未通过 |
+| `clawbot_send_media` | 本地文件/图片/视频发给绑定本人；文件/图片已发送且本人确认打开/显示正常；视频未实测 |
+| `clawbot_download` | 按updates的入站attachment_id下载解密到私有目录；文件、图片、语音CLI及图片MCP下载已实测 |
 | `wecom_notifications` | 本机Android企微通知归档；MCP调用已验证。本人手机为原生鸿蒙，通知接入已暂缓，真实投递未验证 |
 
 安装额外依赖并注册：
@@ -27,4 +27,4 @@ codex mcp add wechat-personal -- ~/.local/share/ncut-wechat-skills/bot-venv/bin/
 
 4.1.13升级后，`wechat_messages(chat="微信ClawBot")`也可读取本机ClawBot双向历史。验收/排查时可选在`clawbot_send`后用此工具查新消息，核对正文、时间及机器人发送人；日常发送不要求本地微信在线或本地读回，`clawbot_updates`只消费服务端入站增量，不能代替发送后收件端读回。
 
-2026-09-19新增媒体后，真实stdio客户端已列出7个工具；`clawbot_send_media`复用已发送图片的request_id返回`replayed=true`与原受理结果，没有再次上传/发送。媒体发送总超时75秒，下载50秒；超时后先检查原操作记录，不新建ID重试。文件/图片显示和真实下载缺项见[媒体契约](../capabilities/clawbot/media.md)。
+2026-09-19新增媒体后，真实stdio客户端已列出7个工具；`clawbot_send_media`复用已发送图片的request_id返回`replayed=true`与原受理结果，没有再次上传/发送。媒体发送总超时75秒，下载50秒；超时后先检查原操作记录，不新建ID重试。文件/图片显示已获本人确认，下载验证范围见[媒体契约](../capabilities/clawbot/media.md)。

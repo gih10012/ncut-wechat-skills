@@ -235,6 +235,16 @@ class IlinkTests(unittest.TestCase):
             with self.subTest(url=url), self.assertRaises(ilink.BotError):
                 ilink_media.cdn_url(url)
 
+    def test_cached_download_can_run_while_poll_owns_account_lock(self):
+        import fcntl
+        self.account.parent.mkdir(parents=True)
+        with (self.account.parent/'command.lock').open('w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with patch.object(ilink_media, 'download', return_value={'ok': True}) as download, patch.object(ilink, 'request') as request:
+                result = ilink.main(['download', '--attachment-id', 'a'*64], self.access)
+        self.assertTrue(result['ok'])
+        download.assert_called_once(); request.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

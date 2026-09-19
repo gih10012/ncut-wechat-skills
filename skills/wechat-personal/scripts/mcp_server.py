@@ -81,7 +81,7 @@ def clawbot_send_media(path: str, request_id: str, kind: str = 'file', account: 
 
 @server.tool(annotations=POLL)
 def clawbot_download(attachment_id: str, account: str = 'me') -> dict:
-    """Download/decrypt a cached ClawBot attachment into private local storage, without desktop WeChat. IDs come from updates/send; default limit 32 MiB. Returns local path and SHA-256."""
+    """Download/decrypt an inbound ClawBot attachment into private storage, without desktop WeChat. Use IDs from updates; default limit 32 MiB. File/image/voice downloads verified; outbound send references may not be downloadable. Returns local path and SHA-256."""
     return invoke(['bot', 'download', '--account', account, '--attachment-id', attachment_id])
 
 
