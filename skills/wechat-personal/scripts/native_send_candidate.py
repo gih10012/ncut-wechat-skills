@@ -12,6 +12,18 @@ import time
 
 HERE = Path(__file__).resolve().parent
 REQUEST_ID = 'linux-native-filehelper-text-v1'
+POLL_SYSCALLS = {7: 'poll', 232: 'epoll_wait', 271: 'ppoll', 281: 'epoll_pwait', 441: 'epoll_pwait2'}
+
+
+def classify_poll_stop(syscall_number, previous_instruction, library):
+    # Recent glibc routes cancellable syscalls through an unnamed common stub.
+    # A function name therefore cannot distinguish ppoll from futex/read/etc.
+    accepted = (syscall_number in POLL_SYSCALLS and previous_instruction == b'\x0f\x05'
+                and Path(library or '').name == 'libc.so.6')
+    return {'verified': accepted, 'syscall_number': syscall_number,
+            'syscall_name': POLL_SYSCALLS.get(syscall_number, 'not_poll'),
+            'syscall_instruction_verified': previous_instruction == b'\x0f\x05',
+            'library': Path(library or '').name}
 
 
 def varint(number):
@@ -139,6 +151,12 @@ def inject_in_gdb(gdb):
                 gdb.execute('handle SIGUSR1 stop nopass', to_string=True)
             gdb.execute('break fixture_idle', to_string=True)
             gdb.execute('run', to_string=True)
+            if cfg.get('poll_fixture'):
+                gdb.execute('catch syscall poll', to_string=True)
+                gdb.execute('continue', to_string=True)
+                # No catchpoint may fire inside later inferior calls.
+                for breakpoint in gdb.breakpoints() or ():
+                    breakpoint.delete()
         else:
             gdb.execute('attach ' + str(cfg['pid']), to_string=True)
         status['attached'] = True
@@ -146,12 +164,16 @@ def inject_in_gdb(gdb):
         status['inferior_pid'] = inferior.pid
         gdb.execute('sharedlibrary libc', to_string=True)
         gdb.execute('set scheduler-locking off', to_string=True)
-        if not cfg.get('fixture'):
-            main = next(t for t in inferior.threads() if t.ptid[1] == cfg['pid'])
+        if not cfg.get('fixture') or cfg.get('poll_fixture'):
+            main_pid = inferior.pid
+            main = next(t for t in inferior.threads() if t.ptid[1] == main_pid)
             main.switch()
-            name = gdb.newest_frame().name() or ''
-            if not any(x in name for x in ('poll', 'epoll_wait', 'epoll_pwait')):
+            pc = int(gdb.parse_and_eval('$pc'))
+            status['idle_check'] = classify_poll_stop(int(gdb.parse_and_eval('$orig_rax')),
+                bytes(inferior.read_memory(pc - 2, 2)), gdb.solib_name(pc))
+            if not status['idle_check']['verified']:
                 raise ValueError('main_thread_not_idle_in_poll: no inferior call made')
+        if not cfg.get('fixture'):
             base = cfg['load_bias']
             word = lambda address: int.from_bytes(inferior.read_memory(address, 8), 'little')
             account = word(base + 0xacef550)
@@ -235,6 +257,8 @@ def run_injection(cfg, work):
         env.pop(key, None)
     if cfg.get('fixture'):
         env['NCUT_TEST_RESUMED_PATH'] = str(work/'main-resumed')
+        if cfg.get('poll_fixture'):
+            env['NCUT_TEST_POLL'] = '1'
     if cfg.get('fixture') and cfg.get('interrupt_loader'):
         env['NCUT_TEST_INTERRUPT_LOADER'] = '1'
     command = f'python __file__={script!r}; exec(compile(open({script!r}).read(), {script!r}, "exec"))'
@@ -278,6 +302,32 @@ def run_injection(cfg, work):
     return result
 
 
+def reserve_trial_work(root, name):
+    work = root/name
+    if work.exists():
+        # Only this exact pre-call rejection is known not to have allocated,
+        # loaded a module or launched a worker. Keep its full evidence archived.
+        try:
+            previous = json.loads((work/'result.json').read_text())
+            debugger = json.loads((work/'debugger-process.json').read_text())
+            retryable = (previous.get('status') == 'injection_failed'
+                         and previous.get('error') == 'main_thread_not_idle_in_poll: no inferior call made'
+                         and previous.get('detached') is True
+                         and previous.get('client_running_untraced') is True
+                         and previous.get('launch_call_entered') is False
+                         and previous.get('launch_returned') is False
+                         and not (work/'worker.json').exists()
+                         and not (work/'worker.json.arm').exists()
+                         and not Path('/proc', str(debugger['pid'])).exists())
+        except (OSError, ValueError, KeyError):
+            retryable = False
+        if not retryable:
+            raise ValueError('Existing trial: inspect its result; do not repeat a possibly submitted message: ' + str(work))
+        work.rename(root/(name + '-preflight-' + str(time.time_ns())))
+    work.mkdir(mode=0o700)
+    return work
+
+
 def trial(send):
     from native_send_probe import desktop_identity, run_desktop_preparation
     uid = int(os.environ.get('SUDO_UID', '0'))
@@ -289,10 +339,7 @@ def trial(send):
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         root.chmod(0o700)
         # One fixed acceptance operation; uncertainty never causes automatic replay.
-        work = root/(REQUEST_ID if send else 'native-roundtrip-v1')
-        if work.exists():
-            raise ValueError('Existing trial: inspect its result; do not repeat a possibly submitted message: ' + str(work))
-        work.mkdir(mode=0o700)
+        work = reserve_trial_work(root, REQUEST_ID if send else 'native-roundtrip-v1')
     targets = []
     for target in Path('/proc').iterdir():
         if not target.name.isdigit():

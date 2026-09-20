@@ -2,6 +2,7 @@
 #include "../scripts/native_send_helper.c"
 #include <assert.h>
 #include <signal.h>
+#include <poll.h>
 
 #ifdef NCUT_FIXTURE_DSO
 static void *interrupt_loader(void *unused) {
@@ -104,7 +105,10 @@ int main(int argc, char **argv) {
             assert(write(fd, "returned to original main\n", 26) == 26);
             close(fd);
         }
-        for (;;) pause();
+        for (;;) {
+            if (getenv("NCUT_TEST_POLL")) poll(NULL, 0, 100);
+            else pause();
+        }
     }
     parse_fail = !strcmp(argv[1], "parse-failure");
     unconsumed = !strcmp(argv[1], "unconsumed");

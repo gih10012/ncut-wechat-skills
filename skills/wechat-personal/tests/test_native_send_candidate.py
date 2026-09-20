@@ -15,6 +15,30 @@ import native_send_candidate as candidate
 
 
 class NativeCandidateTests(unittest.TestCase):
+    def test_poll_check_accepts_syscall_evidence_and_rejects_other_waits(self):
+        for syscall in (7, 232, 271, 281, 441):
+            self.assertTrue(candidate.classify_poll_stop(syscall, b'\x0f\x05', '/usr/lib/libc.so.6')['verified'])
+        for syscall, code, library in ((202, b'\x0f\x05', '/usr/lib/libc.so.6'),
+                                      (271, b'xx', '/usr/lib/libc.so.6'),
+                                      (271, b'\x0f\x05', '/tmp/unrelated.so')):
+            self.assertFalse(candidate.classify_poll_stop(syscall, code, library)['verified'])
+
+    def test_only_proven_pre_call_failure_can_be_archived_for_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            work = candidate.reserve_trial_work(root, 'once')
+            safe = {'status': 'injection_failed', 'detached': True, 'client_running_untraced': True,
+                    'launch_call_entered': False, 'launch_returned': False,
+                    'error': 'main_thread_not_idle_in_poll: no inferior call made'}
+            candidate.save(work/'result.json', safe)
+            candidate.save(work/'debugger-process.json', {'pid': 999999999})
+            candidate.reserve_trial_work(root, 'once')
+            self.assertEqual(len(list(root.glob('once-preflight-*'))), 1)
+            candidate.save(work/'result.json', {**safe, 'launch_call_entered': True})
+            candidate.save(work/'debugger-process.json', {'pid': 999999999})
+            with self.assertRaisesRegex(ValueError, 'possibly submitted'):
+                candidate.reserve_trial_work(root, 'once')
+
     def test_payload_is_one_bounded_filehelper_text(self):
         payload = candidate.make_payload(1700000000)
         self.assertEqual(payload[:2], b'\x08\x01')
@@ -51,10 +75,14 @@ class NativeCandidateTests(unittest.TestCase):
         self.run_debugger_fixture(False)
 
     @unittest.skipUnless(shutil.which('gdb'), 'GDB is required for real debugger fixture')
+    def test_real_poll_syscall_is_recognized_without_function_name(self):
+        self.run_debugger_fixture(False, poll=True)
+
+    @unittest.skipUnless(shutil.which('gdb'), 'GDB is required for real debugger fixture')
     def test_other_thread_signal_during_loader_never_arms_send(self):
         self.run_debugger_fixture(True)
 
-    def run_debugger_fixture(self, interrupt):
+    def run_debugger_fixture(self, interrupt, poll=False):
         if os.geteuid() == 0:
             self.skipTest('Run this synthetic debugger test as ordinary user')
         with tempfile.TemporaryDirectory() as tmp:
@@ -66,7 +94,8 @@ class NativeCandidateTests(unittest.TestCase):
             helper = work/'fixture.so'
             subprocess.run(['gcc', '-shared', '-fPIC', '-g', '-O0', '-pthread', '-DNCUT_FIXTURE_DSO', source, '-o', str(helper)],
                            check=True, capture_output=True, timeout=30)
-            cfg = {'fixture': True, 'interrupt_loader': interrupt, 'binary_copy': str(fixture), 'helper': str(helper),
+            cfg = {'fixture': True, 'interrupt_loader': interrupt, 'poll_fixture': poll,
+                   'binary_copy': str(fixture), 'helper': str(helper),
                    'load_bias': 1, 'send': True, 'payload_hex': candidate.make_payload(1700000000).hex(),
                    'injection_result': str(work/'injection.json'), 'worker_result': str(work/'worker.json')}
             result = candidate.run_injection(cfg, work)
@@ -83,6 +112,9 @@ class NativeCandidateTests(unittest.TestCase):
                 self.assertEqual(result.get('status'), 'trial_finished', (result, (work/'debugger.log').read_text()))
                 self.assertTrue(result['detached'])
                 self.assertTrue(result['armed'])
+                if poll:
+                    self.assertTrue(result['idle_check']['verified'])
+                    self.assertEqual(result['idle_check']['syscall_name'], 'poll')
                 self.assertEqual(result['worker']['task_id'], 77)
                 self.assertEqual(result['worker']['callback_count'], 1)
                 self.assertEqual(result['worker']['callback_destroyed'], 1)
