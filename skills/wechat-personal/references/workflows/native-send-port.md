@@ -40,9 +40,9 @@ sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py obse
 
 读取结果时：命中只证明该调用及所观察字段，仍需核对请求构造、业务对象及释放规则，才能写真正的发送适配。没有匹配到目标CGI时，先核对发送端和时间；不能凭空换地址或套用 Mac 模板。发送状态不得仅凭观测成功升为runtime_verified。个人身份发送验收继续使用已有明确授权的目标/类型，避免重复询问；新收件人或超出授权范围的内容另行核对。本人暂离且允许ClawBot沟通时，把待协助的本机步骤记入私有状态，通过已授权的bot send联系，避免重发同一事项。
 
-## 一次性主动发送候选（待微信实测）
+## 一次性主动发送候选（真实调用通过，送达待确认）
 
-`scripts/native_send_candidate.py` 与 `native_send_helper.c` 已随skill安装。它们只接受同一SHA的Linux客户端，仅用于本人已授权的文件传输助手文字验收；尚未接入普通send或OneBot。首次使用：
+`scripts/native_send_candidate.py` 与 `native_send_helper.c` 已随skill安装。它们只接受同一SHA的Linux客户端，仅用于本人已授权的文件传输助手文字验收；尚未接入普通send或OneBot。已有真实试验记录时先用末尾的status命令，不能为重测删除防重记录。首次使用：
 
 ```bash
 sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py filehelper-once
@@ -58,4 +58,10 @@ sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py 
 
 同日本人发现合成`fixture`在跨线程信号测试后崩溃。已复现：新加载模块缺少GDB已加载的展开元数据时，栈遍历可能看不到未完成的dummy frame，旧判据会提前清理/脱离。修复为同时跟踪每次原生调用前的PC/SP，在两者恢复前不执行后续调用或脱离；检查失败保留pending。回归新增原程序返回路径的标志及脱离后存活检查，避免只看瞬间进程状态。此次崩溃不是微信进程，未执行真实发送；CI另隔离宿主Python库路径以保证系统GDB使用配套Python。
 
-首次本人微信运行被旧函数名预检拦住：`main_thread_not_idle_in_poll`，未进入任何原生调用，已脱离且客户端继续运行，没有消息发出。现场PC位于libc的无名syscall返回点，随后只读wchan为poll等待；已改用上述系统调用证据并通过真实GDB poll子进程回归。该修复尚待本人重试，不把预检放行视作发送验收。
+首次本人微信运行被旧函数名预检拦住：`main_thread_not_idle_in_poll`，未进入任何原生调用，已脱离且客户端继续运行，没有消息发出。现场PC位于libc的无名syscall返回点，随后只读wchan为poll等待；已改用上述系统调用证据并通过真实GDB poll子进程回归。预检放行本身不算发送验收。
+
+2026-09-20修复后的本人真实重试已通过ppoll预检、网络服务对象校验、原生请求往返检查；进入真实提交，得到一次完成回调且错误类型/代码均0，回调对象已析构，客户端运行且无调试器。随后重复执行被防重保护拒绝，不代表上一轮失败。电脑本地filehelper历史未查到固定文字，接收端确认仍待本人回复；不能据此标记送达或整个OneBot可用。查看已有结果无需sudo，也不会重发：
+
+```bash
+python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py status
+```

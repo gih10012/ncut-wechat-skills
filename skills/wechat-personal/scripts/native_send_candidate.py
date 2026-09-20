@@ -377,13 +377,28 @@ def trial(send):
     return {'result_path': str(work/'result.json'), **result}
 
 
+def inspect_trial():
+    """Read the persisted trial without attaching, compiling or sending."""
+    uid = int(os.environ.get('SUDO_UID', str(os.getuid())))
+    root = Path(pwd.getpwuid(uid).pw_dir)/'.local/state/ncut-wechat-skills/native-send-trial'
+    work = root/REQUEST_ID
+    if not (work/'result.json').exists():
+        raise ValueError('No completed trial report is available yet: ' + str(work))
+    result = json.loads((work/'result.json').read_text())
+    if (work/'worker.json').exists():
+        result['worker'] = json.loads((work/'worker.json').read_text())
+    return {'result_path': str(work/'result.json'), 'read_only': True, **result}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=('check', 'filehelper-once'))
+    parser.add_argument('operation', choices=('check', 'filehelper-once', 'status'))
     args = parser.parse_args()
     os.umask(0o077)
-    result = trial(args.operation == 'filehelper-once')
+    result = inspect_trial() if args.operation == 'status' else trial(args.operation == 'filehelper-once')
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if args.operation == 'status':
+        return 0
     worker = result.get('worker', {})
     return 0 if (worker.get('worker_done') and worker.get('native_roundtrip_verified')
                  and not worker.get('failure') and result.get('client_running_untraced')
