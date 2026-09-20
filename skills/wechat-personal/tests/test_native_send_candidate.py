@@ -6,6 +6,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[1]/'scripts'
@@ -75,7 +76,9 @@ class NativeCandidateTests(unittest.TestCase):
                     self.assertTrue(result['detached'])
                     self.assertFalse(result.get('armed', False))
                     self.assertFalse(Path(cfg['worker_result']).exists())
+                    time.sleep(.5)
                     self.assertTrue(candidate.process_running_untraced(result['inferior_pid']))
+                    self.assertTrue((work/'main-resumed').exists())
                     return
                 self.assertEqual(result.get('status'), 'trial_finished', (result, (work/'debugger.log').read_text()))
                 self.assertTrue(result['detached'])
@@ -84,9 +87,15 @@ class NativeCandidateTests(unittest.TestCase):
                 self.assertEqual(result['worker']['callback_count'], 1)
                 self.assertEqual(result['worker']['callback_destroyed'], 1)
                 self.assertEqual(result['worker']['live_callbacks'], 0)
+                time.sleep(.5)
+                self.assertTrue(candidate.process_running_untraced(result['inferior_pid']))
+                self.assertTrue((work/'main-resumed').exists())
             finally:
                 if result.get('inferior_pid'):
-                    os.kill(result['inferior_pid'], signal.SIGTERM)
+                    try:
+                        os.kill(result['inferior_pid'], signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
                 if result.get('debugger_pid'):
                     os.kill(result['debugger_pid'], signal.SIGTERM)
 

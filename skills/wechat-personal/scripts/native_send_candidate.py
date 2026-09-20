@@ -62,6 +62,22 @@ def inject_in_gdb(gdb):
     output = Path(cfg['injection_result'])
     allocated = 0
     call_thread = None
+    call_origin = None
+
+    def inferior_call(expression, evaluate=True):
+        nonlocal call_origin
+        call_thread.switch()
+        call_origin = (int(gdb.parse_and_eval('$pc')), int(gdb.parse_and_eval('$sp')))
+        value = (gdb.parse_and_eval(expression) if evaluate
+                 else gdb.execute(expression, to_string=True))
+        # A normally returned GDB call restores the caller's machine state.
+        call_thread.switch()
+        current = (int(gdb.parse_and_eval('$pc')), int(gdb.parse_and_eval('$sp')))
+        if current != call_origin:
+            raise RuntimeError('inferior_call_origin_not_restored')
+        call_origin = None
+        return value
+
     def pending_call():
         pending = False
         try:
@@ -81,6 +97,13 @@ def inject_in_gdb(gdb):
                     frame = frame.older()
                 if pending:
                     break
+            # Unwind metadata can be unavailable for a newly loaded module.
+            # Then the stack walk can end before the DUMMY_FRAME. Keep the
+            # interrupted call active until its original PC/SP are restored.
+            if inferior.pid and call_origin is not None:
+                call_thread.switch()
+                current = (int(gdb.parse_and_eval('$pc')), int(gdb.parse_and_eval('$sp')))
+                pending = pending or current != call_origin
         except gdb.error:
             # An unreadable thread is uncertainty, not proof a call has ended.
             pending = True
@@ -93,6 +116,7 @@ def inject_in_gdb(gdb):
         return pending
 
     def finish_pending_call():
+        nonlocal call_origin
         # Never issue another call, unwind or detach across an unfinished call.
         # The outer process will report the live debugger if this cannot finish.
         while pending_call():
@@ -102,6 +126,7 @@ def inject_in_gdb(gdb):
                 gdb.execute('continue', to_string=True)
             except gdb.error:
                 time.sleep(1)
+        call_origin = None
     try:
         for command in ('set pagination off', 'set confirm off', 'set auto-load off',
                         'set debuginfod enabled off', 'set print thread-events off',
@@ -145,17 +170,17 @@ def inject_in_gdb(gdb):
         # Only loader/allocation/thread launch calls occur under the debugger.
         status['status'] = 'loader_calls'
         save(output, status)
-        allocated = int(gdb.parse_and_eval(f'(void *)malloc({len(total)})'))
+        allocated = int(inferior_call(f'(void *)malloc({len(total)})'))
         if not allocated:
             raise ValueError('allocation_failed')
         inferior.write_memory(allocated, total)
         result_ptr = allocated + len(helper)
         symbol_ptr = result_ptr + len(result)
         data_ptr = symbol_ptr + len(symbol)
-        handle = int(gdb.parse_and_eval(f'(void *)dlopen((char *){allocated}, 2)'))
+        handle = int(inferior_call(f'(void *)dlopen((char *){allocated}, 2)'))
         if not handle:
             raise ValueError('helper_dlopen_failed')
-        launcher = int(gdb.parse_and_eval(f'(void *)dlsym((void *){handle}, (char *){symbol_ptr})'))
+        launcher = int(inferior_call(f'(void *)dlsym((void *){handle}, (char *){symbol_ptr})'))
         if not launcher:
             raise ValueError('helper_symbol_missing')
         status['launch_call_entered'] = True
@@ -163,7 +188,7 @@ def inject_in_gdb(gdb):
         expression = (f'((int (*)(unsigned long,void*,unsigned long,char*,int)){launcher})'
                       f'({cfg["load_bias"]},(void*){data_ptr},{len(data)},'
                       f'(char*){result_ptr},{int(cfg["send"])})')
-        code = int(gdb.parse_and_eval(expression))
+        code = int(inferior_call(expression))
         status['launch_returned'] = True
         status['launch_code'] = code
         status['status'] = 'launched' if code == 0 else 'launch_rejected'
@@ -177,7 +202,7 @@ def inject_in_gdb(gdb):
         if status['attached']:
             if allocated:
                 try:
-                    gdb.execute(f'call (void)free((void *){allocated})', to_string=True)
+                    inferior_call(f'call (void)free((void *){allocated})', evaluate=False)
                 except Exception:
                     status['scratch_release_unverified'] = True
                     finish_pending_call()
@@ -204,6 +229,12 @@ def run_injection(cfg, work):
     save(work/'config.json', cfg)
     script = str(Path(__file__).resolve())
     env = {**os.environ, 'NCUT_SEND_CONFIG': str(work/'config.json'), 'DEBUGINFOD_URLS': ''}
+    # GDB embeds its system Python. A caller's venv/CI libpython path can load
+    # another Python runtime with incompatible stdlib extension directories.
+    for key in ('LD_LIBRARY_PATH', 'PYTHONHOME', 'PYTHONPATH'):
+        env.pop(key, None)
+    if cfg.get('fixture'):
+        env['NCUT_TEST_RESUMED_PATH'] = str(work/'main-resumed')
     if cfg.get('fixture') and cfg.get('interrupt_loader'):
         env['NCUT_TEST_INTERRUPT_LOADER'] = '1'
     command = f'python __file__={script!r}; exec(compile(open({script!r}).read(), {script!r}, "exec"))'

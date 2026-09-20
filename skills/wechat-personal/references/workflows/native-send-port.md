@@ -55,3 +55,5 @@ sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py 
 状态在`~/.local/state/ncut-wechat-skills/native-send-trial/`，权限0700/0600。固定试验ID只允许一次运行；已有目录即拒绝，结果不确定时先读状态和接收端，不能删除记录后盲重发。`submission_entered`仅代表进入提交，`task_id`仅是客户端任务号，完成回调零错误也仍需接收端看到固定验收文字。`worker_pending`、`callback_pending`不能当成功；`debugger_still_running`会报告活跃PID，需按其实际状态接续，不能重启或强杀未完成的原生调用。
 
 2026-09-20已通过真实GDB的合成进程加载→脱离→启动→异步回调测试，及跨线程信号打断加载的恢复测试；ASan/UBSan覆盖成功、仅检查、解析失败、未转移回调、错误回调和回调先于提交返回的释放路径。以上是候选实现验证，尚无该脚本调用本人微信的证据。第一次真实执行后必须读取私有结果并核对接收端，再决定是否继续接入OneBot和其他消息类型。
+
+同日本人发现合成`fixture`在跨线程信号测试后崩溃。已复现：新加载模块缺少GDB已加载的展开元数据时，栈遍历可能看不到未完成的dummy frame，旧判据会提前清理/脱离。修复为同时跟踪每次原生调用前的PC/SP，在两者恢复前不执行后续调用或脱离；检查失败保留pending。回归新增原程序返回路径的标志及脱离后存活检查，避免只看瞬间进程状态。此次崩溃不是微信进程，未执行真实发送；CI另隔离宿主Python库路径以保证系统GDB使用配套Python。

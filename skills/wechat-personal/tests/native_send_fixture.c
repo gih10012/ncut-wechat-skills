@@ -97,6 +97,13 @@ __attribute__((noinline)) void fixture_idle(void) { asm volatile("" ::: "memory"
 int main(int argc, char **argv) {
     if (argc == 1) {
         fixture_idle();
+        const char *path = getenv("NCUT_TEST_RESUMED_PATH");
+        if (path) {
+            int fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+            assert(fd >= 0);
+            assert(write(fd, "returned to original main\n", 26) == 26);
+            close(fd);
+        }
         for (;;) pause();
     }
     parse_fail = !strcmp(argv[1], "parse-failure");
