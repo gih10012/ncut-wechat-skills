@@ -2,6 +2,7 @@
 """Explicit development aid: bounded hardware-breakpoint observation, never sends."""
 import argparse
 from contextlib import contextmanager
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -127,6 +128,7 @@ def trace_in_gdb(gdb):
     bp = None
     inferior = None
     attached = False
+    observation_start = None
     try:
         for command in ('set pagination off', 'set confirm off', 'set print thread-events off',
                         'set auto-load off', 'set debuginfod enabled off',
@@ -189,6 +191,8 @@ def trace_in_gdb(gdb):
 
         bp = Observe('*' + hex(address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
         state['status'] = 'observing'
+        state['observation_started_at'] = datetime.now().astimezone().isoformat(timespec='seconds')
+        observation_start = time.monotonic()
         save(out, state)
         print('OBSERVING: send one short text manually from Linux WeChat to File Transfer Assistant.', flush=True)
         gdb.execute('continue', to_string=True)
@@ -221,6 +225,9 @@ def trace_in_gdb(gdb):
                 gdb.execute('kill', to_string=True)
             except Exception:
                 pass
+        state['observation_ended_at'] = datetime.now().astimezone().isoformat(timespec='seconds')
+        if observation_start is not None:
+            state['observation_elapsed_seconds'] = round(time.monotonic() - observation_start, 2)
         save(out, state)
     gdb.execute('quit', to_string=True)
 
@@ -240,6 +247,7 @@ def run_gdb(cfg, work, seconds, on_started=None):
                                 stdout=output, stderr=subprocess.STDOUT, env=env, start_new_session=True)
         if on_started is not None:
             on_started()
+        stop_reason = 'debugger_finished'
         try:
             deadline = time.monotonic() + seconds
             announced = False
@@ -251,11 +259,14 @@ def run_gdb(cfg, work, seconds, on_started=None):
                     except (OSError, ValueError):
                         state = {}
                     if state.get('status') == 'observing':
-                        print('观测已就绪：现在请在 Linux 微信向文件传输助手手动发一条短文字；最多等待约60秒。', flush=True)
+                        ready = state.get('observation_started_at', '')
+                        print(f'观测已就绪（{ready}）：请现在从这台 Linux 电脑的微信窗口向文件传输助手发一条短文字；本轮最多等待{seconds}秒。', flush=True)
                         announced = True
                 time.sleep(.2)
+            if proc.poll() is None:
+                stop_reason = 'deadline'
         except KeyboardInterrupt:
-            pass
+            stop_reason = 'operator_interrupt'
         finally:
             if proc.poll() is None:
                 proc.send_signal(signal.SIGINT)
@@ -265,7 +276,9 @@ def run_gdb(cfg, work, seconds, on_started=None):
                     proc.kill()
                     proc.wait(timeout=3)
     result = Path(cfg['output'])
-    return json.loads(result.read_text()) if result.exists() else {'status': 'debugger_failed_before_result'}
+    state = json.loads(result.read_text()) if result.exists() else {'status': 'debugger_failed_before_result'}
+    state['wait_stop_reason'] = stop_reason
+    return state
 
 
 def self_test():
@@ -376,7 +389,10 @@ def observe(seconds):
         save(work/'result.json', result)
     return {'ok': result.get('status') == 'captured' and cleanup['verified'], 'status': result.get('status'),
             'event_count': len(result.get('events', [])), 'result_path': str(work/'result.json'),
-            'message_send_performed': False, 'cleanup': cleanup}
+            'message_send_performed': False, 'cleanup': cleanup,
+            'observation_window': {key: result.get(key) for key in
+                                   ('observation_started_at', 'observation_ended_at',
+                                    'observation_elapsed_seconds', 'wait_stop_reason')}}
 
 
 def main():
