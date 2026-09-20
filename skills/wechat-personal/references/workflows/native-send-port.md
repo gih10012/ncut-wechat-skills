@@ -16,7 +16,7 @@ Mac 的业务 protobuf 构造可参考，但 ARM64 调用代码及 Task 模板�
 
 第三个候选断点位于公共 `StnManager::OnTaskEnd` 的虚调用返回点 `0x8e82d23`，该处 `r13d=task_id`、`r12=user_context`、`r14d=error_type`、`[rsp+0x1c]=error_code`、`eax=callback_result`。错误编号的栈偏移已计入调用前额外压入的两个参数。继续以Task ID/context双重关联，捕获首个匹配完成回调后结束；只捕获Task而未捕获完成回调时，`task_end_event_count`为0，不能当成完整生命周期观测。完成回调返回值不是送达证明，仍需单独验收主动发送及接收端结果。
 
-StartTask同时只读Task的`+0x1c0`打包标志、`+0x60`命令槽、`+0x1c8/+0x1f0`两个AutoBuffer长度。仅当调用帧精确匹配已观察的`0x79e3e9e`，才用该帧保存的r14定位业务对象，记录vtable及其`+0x10`序列化函数的模块偏移和命令编号；不读取业务内容。当前ELF显示Task大小为`0x218`，构造前以`0xaa`填充并调用真实构造函数，发送请求还经过`micromsg.RequestInfo`包装，不能直接塞入原始文字protobuf。以上新增元数据及OnTaskEnd点已通过合成验证，真实微信验证仍待下一轮观测。
+StartTask同时只读Task的`+0x1c0`打包标志、`+0x60`命令槽、`+0x1c8/+0x1f0`两个AutoBuffer长度。仅当调用帧精确匹配已观察的`0x79e3e9e`，才用该帧保存的r14定位业务对象，记录vtable及其`+0x10`序列化函数的模块偏移和命令编号；不读取业务内容。当前ELF显示Task大小为`0x218`，构造前以`0xaa`填充并调用真实构造函数，发送请求还经过`micromsg.RequestInfo`包装，不能直接塞入原始文字protobuf。2026-09-20新增字段和OnTaskEnd已在本人真实Linux文字发送中匹配：打包标志true、命令522、业务vtable `0xa8df920`、序列化函数 `0x695c360`，完成回调错误类型/代码均0，正常脱离；仍不代表脚本主动发送。
 
 先用普通用户运行：
 
@@ -39,3 +39,19 @@ sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py obse
 2026-09-20已在本人Linux微信真实捕获`newsendmsg`：`cmd_id=522`、`channel_select=1`、`transport_protocol=1`；相同Task ID和context关联到了Req2Buf成功返回，桥实现为`0x90718e0`（MM分支），输出长度非零、扩展长度零，退出后已脱离并恢复运行。该验收覆盖只读观测和关联，不代表主动发送能力已接通。
 
 读取结果时：命中只证明该调用及所观察字段，仍需核对请求构造、业务对象及释放规则，才能写真正的发送适配。没有匹配到目标CGI时，先核对发送端和时间；不能凭空换地址或套用 Mac 模板。发送状态不得仅凭观测成功升为runtime_verified。个人身份发送验收继续使用已有明确授权的目标/类型，避免重复询问；新收件人或超出授权范围的内容另行核对。本人暂离且允许ClawBot沟通时，把待协助的本机步骤记入私有状态，通过已授权的bot send联系，避免重发同一事项。
+
+## 一次性主动发送候选（待微信实测）
+
+`scripts/native_send_candidate.py` 与 `native_send_helper.c` 已随skill安装。它们只接受同一SHA的Linux客户端，仅用于本人已授权的文件传输助手文字验收；尚未接入普通send或OneBot。首次使用：
+
+```bash
+sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py filehelper-once
+```
+
+此命令会自动尝试发送固定验收文字，无需手动另发。它先用当前客户端的protobuf构造、解析、序列化函数核对自建请求，再调用真实文字业务提交入口`0x695bf60`；请求经原有账号包装与网络路径处理。`check`模式只执行原生构造/解析/序列化/析构，不提交网络发送，但仍会加载临时模块并调用进程内函数。
+
+脚本检查唯一进程、完整二进制SHA、网络服务对象vtable与入口、主线程处于poll。GDB只负责加载约18KiB共享模块及启动线程，确认脱离后由私有标志文件允许线程继续。短线程完成后退出；模块为异步回调安全保留到微信进程退出，不安装服务、不监听端口。它显式适配当前libc++回调ABI，不使用系统libstdc++冒充。回调返回false接管对象释放，并与提交函数返回同步，避免快速回调先释放业务对象；使用客户端原有析构函数。
+
+状态在`~/.local/state/ncut-wechat-skills/native-send-trial/`，权限0700/0600。固定试验ID只允许一次运行；已有目录即拒绝，结果不确定时先读状态和接收端，不能删除记录后盲重发。`submission_entered`仅代表进入提交，`task_id`仅是客户端任务号，完成回调零错误也仍需接收端看到固定验收文字。`worker_pending`、`callback_pending`不能当成功；`debugger_still_running`会报告活跃PID，需按其实际状态接续，不能重启或强杀未完成的原生调用。
+
+2026-09-20已通过真实GDB的合成进程加载→脱离→启动→异步回调测试，及跨线程信号打断加载的恢复测试；ASan/UBSan覆盖成功、仅检查、解析失败、未转移回调、错误回调和回调先于提交返回的释放路径。以上是候选实现验证，尚无该脚本调用本人微信的证据。第一次真实执行后必须读取私有结果并核对接收端，再决定是否继续接入OneBot和其他消息类型。

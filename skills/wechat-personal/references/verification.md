@@ -21,3 +21,5 @@ Linux 微信本地会话列表、名称查询、近期消息正文/发送人/时
 2026-09-19：Linux微信已更新为4.1.13，复用原密钥读取文件传输助手和ClawBot历史成功。补充OneBot真实收到本人升级后发送的文字并发出回执，已在Linux微信数据库中独立读回对应新消息；临时桥接退出。原生身份发送依然未接通，详见[OneBot追加验收](workflows/onebot.md)。
 
 2026-09-19媒体验收：本人确认机器人发来的TXT可打开、PNG显示正常；真实入站Excel、JPEG和语音通过iLink收到并下载解密，Excel实际解析、图片打开查看、语音SILK头有效，图片stdio MCP下载与CLI哈希一致。语音没有说话，不宣称转写准确。本人报告原生表情包和公众号卡片均无法从当前客户端发给ClawBot，保持未接通。临时接收已退出，具体范围见[媒体下载](capabilities/clawbot/media.md)及[媒体发送](capabilities/clawbot/send-media.md)。原生个人身份发送仍未完成。
+
+2026-09-20：本人Linux手动发送文字的StartTask、Req2Buf、OnTaskEnd已真实关联，完成回调零错误，探针正常脱离。新增固定文件传输助手主动发送候选，通过真实GDB合成进程加载/异步回调及ASan/UBSan所有权测试；尚未调用本人微信，未升为runtime_verified。后续验收使用[一次性发送入口](workflows/native-send-port.md)，不能用手动观测代替主动发送结果。

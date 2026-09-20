@@ -14,6 +14,8 @@ jobs:
         with:
           node-version: '22'
       - run: python3 -m pip install -r skills/wechat-personal/requirements-native.txt
+      - name: Install debugger for synthetic native adapter validation
+        run: sudo apt-get update && sudo apt-get install -y gdb
       - run: python3 -m unittest discover -s skills/ncut-web-api/tests
       - run: python3 -m unittest discover -s skills/wechat-personal/tests
       - name: Verify root-to-desktop probe preparation on synthetic files
