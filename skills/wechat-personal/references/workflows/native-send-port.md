@@ -24,7 +24,9 @@ python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py self-test
 sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py observe
 ```
 
-脚本只接受原桌面用户自己的唯一微信主进程，拒绝已有调试器、已停止进程或不匹配的二进制。AppImage的FUSE挂载可能拒绝root读取，故准备阶段以原桌面UID读取并校验程序文件，生成短期普通ELF副本供GDB读取，结束删除；不更改挂载或ptrace策略。首轮本人sudo试跑在准备阶段遇到PermissionError，尚未附加进程，已据此修正；合成回归不代替再次真实观测。
+脚本只接受原桌面用户自己的唯一微信主进程，拒绝已有调试器、已停止进程或不匹配的二进制。AppImage的FUSE挂载会检查real/effective/saved UID和GID，不能仅用seteuid/setegid保留root身份。准备阶段在独立子进程中完全切换为原桌面用户，并检查全部六个ID，再读取、校验程序文件和进程映射；root父进程只用短期普通ELF副本供GDB读取，结束删除，不更改挂载或ptrace策略。[内核依据](https://github.com/torvalds/linux/blob/master/fs/fuse/dir.c)与[Python子进程身份参数](https://docs.python.org/3/library/subprocess.html#popen-constructor)。
+
+本人第二轮sudo试跑返回`copy_appimage_as_desktop_user: PermissionError (errno=13)`，说明此前仅切换有效身份的修复不够，仍未开始附加。2026-09-20改用上述子进程后，普通用户已实测同一准备函数能完整复制当前181178912字节FUSE程序、匹配SHA256、解析映射并清理副本；读取子进程的六个ID均匹配桌面用户。CI另用真实root→普通用户切换验证合成文件准备。两项证据各覆盖准备环节，均不代替本人微信的真实sudo观测。
 
 看到“观测已就绪”后，本人在 **Linux 微信** 向文件传输助手手动发一条短文字。手机发送不会经过正在观测的 Linux 客户端发送入口。结果存放在本人 `~/.local/state/ncut-wechat-skills/native-send-observe/run-*/result.json`，权限0600，包含观测结果和是否已脱离、恢复运行的检查。普通账号运行observe会明确返回系统调试权限缺失，不触碰微信。
 

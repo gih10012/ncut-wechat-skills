@@ -9,6 +9,7 @@ from pathlib import Path
 import pwd
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -20,7 +21,7 @@ CGIS = ('/cgi-bin/micromsg-bin/newsendmsg', '/cgi-bin/micromsg-bin/uploadmsgimg'
 
 @contextmanager
 def desktop_identity(uid, gid):
-    """FUSE AppImages allow their mounting user, not necessarily root."""
+    """Temporarily access ordinary user files; insufficient for user-only FUSE."""
     previous_uid, previous_gid = os.geteuid(), os.getegid()
     try:
         if previous_gid != gid:
@@ -51,9 +52,65 @@ def copy_verified_executable(source, destination, expected=EXPECTED):
         if digest.hexdigest() != expected:
             raise ValueError('Unsupported WeChat binary; revalidate the Linux addresses first')
         return digest.hexdigest()
-    except BaseException:
-        destination.unlink(missing_ok=True)
+    except BaseException as error:
+        try:
+            destination.unlink(missing_ok=True)
+        except OSError as cleanup_error:
+            raise ValueError(f'{type(error).__name__}: {error}; '
+                             f'copy_cleanup_failed: errno={cleanup_error.errno}') from error
         raise
+
+
+def prepare_desktop_executable(request):
+    """Runs in a disposable child with all real/effective/saved IDs dropped."""
+    uid, gid = request['uid'], request['gid']
+    if uid == 0 or os.getresuid() != (uid, uid, uid) or os.getresgid() != (gid, gid, gid):
+        raise ValueError('desktop_identity_incomplete: all real/effective/saved IDs must match')
+    target, work = Path(request['target']), Path(request['work'])
+    stage = 'copy_appimage_as_desktop_user'
+    try:
+        digest = copy_verified_executable(target/'exe', work/'wechat.elf', request['expected'])
+        stage = 'read_desktop_process_maps'
+        exe_real = os.readlink(target/'exe')
+        mappings = [line.split(maxsplit=5) for line in (target/'maps').read_text().splitlines()]
+        bases = [int(x[0].split('-')[0], 16) for x in mappings
+                 if len(x) == 6 and x[2] == '00000000' and x[5] == exe_real]
+        if len(bases) != 1:
+            raise ValueError('Cannot determine unique WeChat ELF load bias')
+        return {'binary_sha256': digest, 'load_bias': bases[0],
+                'reader_uids': list(os.getresuid()), 'reader_gids': list(os.getresgid())}
+    except OSError as error:
+        raise ValueError(f'{stage}: {type(error).__name__} (errno={error.errno})') from None
+
+
+def run_desktop_preparation(target, work, uid, gid, expected=EXPECTED):
+    # Popen's user/group set real and effective IDs before exec (also replacing
+    # saved IDs); euid-only switching leaves saved root and fails FUSE checks.
+    script = str(Path(__file__).resolve())
+    code = '''import json, runpy, sys
+module = runpy.run_path(sys.argv[1], run_name='ncut_probe_preparation')
+try:
+    result = module['prepare_desktop_executable'](json.load(sys.stdin))
+except (ValueError, OSError) as error:
+    print(json.dumps({'error': str(error)}))
+    sys.exit(1)
+print(json.dumps(result))
+'''
+    identity = {'user': uid, 'group': gid, 'extra_groups': []} if os.geteuid() == 0 else {}
+    request = {'target': str(target), 'work': str(work), 'uid': uid, 'gid': gid, 'expected': expected}
+    try:
+        child = subprocess.run([sys.executable, '-I', '-c', code, script],
+                               input=json.dumps(request), text=True, capture_output=True,
+                               timeout=60, cwd='/', **identity)
+    except subprocess.TimeoutExpired:
+        raise ValueError('desktop_preparation_timeout: exceeded 60 seconds') from None
+    try:
+        prepared = json.loads(child.stdout)
+    except ValueError:
+        raise ValueError('desktop_preparation_failed_before_result') from None
+    if child.returncode or 'error' in prepared:
+        raise ValueError(prepared.get('error', 'desktop_preparation_failed'))
+    return prepared
 
 
 def save(path, value):
@@ -168,7 +225,7 @@ def trace_in_gdb(gdb):
     gdb.execute('quit', to_string=True)
 
 
-def run_gdb(cfg, work, seconds):
+def run_gdb(cfg, work, seconds, on_started=None):
     config = work / 'config.json'
     save(config, cfg)
     env = {**os.environ, 'NCUT_WECHAT_OBSERVE_CONFIG': str(config), 'DEBUGINFOD_URLS': ''}
@@ -181,6 +238,8 @@ def run_gdb(cfg, work, seconds):
                                  '-iex', 'set auto-load off', '-iex', 'set debuginfod enabled off',
                                  '-ex', load_script],
                                 stdout=output, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+        if on_started is not None:
+            on_started()
         try:
             deadline = time.monotonic() + seconds
             announced = False
@@ -258,6 +317,12 @@ def observe(seconds):
         raise ValueError('WeChat is already traced or stopped; leave it unchanged')
     work = None
     cleanup = {'verified': False}
+    debugger_started = False
+
+    def mark_debugger_started():
+        nonlocal debugger_started
+        debugger_started = True
+
     stage = 'prepare_private_directory'
     try:
         with desktop_identity(uid, owner.pw_gid):
@@ -265,31 +330,24 @@ def observe(seconds):
             root.mkdir(parents=True, exist_ok=True, mode=0o700)
             root.chmod(0o700)
             work = Path(tempfile.mkdtemp(prefix='run-', dir=root))
-            stage = 'copy_appimage_as_desktop_user'
-            copied = work/'wechat.elf'
-            digest = copy_verified_executable(target/'exe', copied)
-            stage = 'read_desktop_process_maps'
-            exe_real = os.readlink(target/'exe')
-            mappings = [line.split(maxsplit=5) for line in (target/'maps').read_text().splitlines()]
-            bases = [int(x[0].split('-')[0], 16) for x in mappings
-                     if len(x) == 6 and x[2] == '00000000' and x[5] == exe_real]
-            if len(bases) != 1:
-                raise ValueError('Cannot determine unique WeChat ELF load bias')
-        cfg = {'self_test': False, 'pid': int(target.name), 'load_bias': bases[0],
-               'address': bases[0] + ENTRY, 'output': str(work/'result.json'),
-               'binary_sha256': digest, 'binary_copy': str(copied)}
+        stage = 'prepare_in_desktop_child'
+        prepared = run_desktop_preparation(target, work, uid, owner.pw_gid)
+        cfg = {'self_test': False, 'pid': int(target.name), 'load_bias': prepared['load_bias'],
+               'address': prepared['load_bias'] + ENTRY, 'output': str(work/'result.json'),
+               'binary_sha256': prepared['binary_sha256'], 'binary_copy': str(work/'wechat.elf')}
         stage = 'start_bounded_debugger'
-        result = run_gdb(cfg, work, seconds)
+        result = run_gdb(cfg, work, seconds, on_started=mark_debugger_started)
     except OSError as error:
         raise ValueError(f'{stage}: {type(error).__name__} (errno={error.errno})') from None
     finally:
+        primary_error = sys.exc_info()[1]
         try:
             current_start = (target/'stat').read_text().rsplit(')', 1)[1].split()[19]
             if current_start == start_time:
                 after = (target/'status').read_text()
                 traced = int(next(x for x in after.splitlines() if x.startswith('TracerPid:')).split()[1])
                 stopped = next(x for x in after.splitlines() if x.startswith('State:')).split()[1] in ('T', 't')
-                if not traced and stopped:
+                if debugger_started and not traced and stopped:
                     os.kill(int(target.name), signal.SIGCONT)
                     time.sleep(.05)
                     after = (target/'status').read_text()
@@ -301,11 +359,18 @@ def observe(seconds):
         except (OSError, StopIteration):
             pass
         if work is not None:
-            (work/'wechat.elf').unlink(missing_ok=True)
-            for file in work.iterdir():
-                file.chmod(0o600)
-                os.chown(file, uid, owner.pw_gid)
-            os.chown(work, uid, owner.pw_gid)
+            try:
+                (work/'wechat.elf').unlink(missing_ok=True)
+                for file in work.iterdir():
+                    file.chmod(0o600)
+                    os.chown(file, uid, owner.pw_gid)
+                os.chown(work, uid, owner.pw_gid)
+            except OSError as error:
+                cleanup['verified'] = False
+                cleanup['artifact_error'] = f'{type(error).__name__} (errno={error.errno})'
+                if primary_error is not None:
+                    raise ValueError(f'{primary_error}; artifact_cleanup_failed: '
+                                     f'{cleanup["artifact_error"]}') from None
     result['cleanup'] = cleanup
     with desktop_identity(uid, owner.pw_gid):
         save(work/'result.json', result)

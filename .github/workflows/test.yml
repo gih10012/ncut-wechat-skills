@@ -16,4 +16,6 @@ jobs:
       - run: python3 -m pip install -r skills/wechat-personal/requirements-native.txt
       - run: python3 -m unittest discover -s skills/ncut-web-api/tests
       - run: python3 -m unittest discover -s skills/wechat-personal/tests
+      - name: Verify root-to-desktop probe preparation on synthetic files
+        run: sudo -n /usr/bin/python3 -m unittest discover -s skills/wechat-personal/tests -p test_native_send_probe.py -v
       - run: node --test skills/ncut-web-api/tests/test_browser_session.mjs
