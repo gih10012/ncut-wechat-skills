@@ -19,6 +19,9 @@ ENTRY = 0x8f60a90
 PROLOGUE = bytes.fromhex('4156534881ec080100004889f34989fe')
 REQ2BUF_RETURN = 0x8e828ed
 REQ2BUF_SIGNATURE = bytes.fromhex('4883c43089c5e996000000')
+TASK_END_RETURN = 0x8e82d23
+TASK_END_SIGNATURE = bytes.fromhex('4883c41089c5e996000000')
+BUSINESS_CALLER_RETURN = 0x79e3e9e
 CGIS = ('/cgi-bin/micromsg-bin/newsendmsg', '/cgi-bin/micromsg-bin/uploadmsgimg')
 
 
@@ -126,10 +129,12 @@ def trace_in_gdb(gdb):
     out = Path(cfg['output'])
     state = {'status': 'starting', 'events': [], 'hits': 0, 'errors': 0,
              'req2buf_events': [], 'req2buf_hits': 0,
+             'task_end_events': [], 'task_end_hits': 0,
              'message_send_performed': False, 'process_payload_written': False,
              'breakpoint_type': 'hardware', 'self_test': cfg['self_test']}
     bp = None
     req_bp = None
+    end_bp = None
     inferior = None
     attached = False
     observation_start = None
@@ -144,6 +149,8 @@ def trace_in_gdb(gdb):
             gdb.execute('starti', to_string=True)
             address = int(gdb.parse_and_eval('&observe_fixture'))
             req_address = int(gdb.parse_and_eval('&observe_req_result'))
+            end_address = int(gdb.parse_and_eval('&observe_end_result'))
+            business_return = int(gdb.parse_and_eval('&observe_business_return'))
         else:
             # Root cannot open a user-only FUSE mount. Use the verified plain-file
             # copy for ELF metadata; target addresses still come from /proc/maps.
@@ -152,14 +159,19 @@ def trace_in_gdb(gdb):
             attached = True
             address = cfg['address']
             req_address = cfg['load_bias'] + REQ2BUF_RETURN
+            end_address = cfg['load_bias'] + TASK_END_RETURN
+            business_return = cfg['load_bias'] + BUSINESS_CALLER_RETURN
         inferior = gdb.selected_inferior()
         if not cfg['self_test'] and bytes(inferior.read_memory(address, len(PROLOGUE))) != PROLOGUE:
             raise RuntimeError('instruction_signature_mismatch')
         if not cfg['self_test'] and bytes(inferior.read_memory(req_address, len(REQ2BUF_SIGNATURE))) != REQ2BUF_SIGNATURE:
             raise RuntimeError('req2buf_instruction_signature_mismatch')
+        if not cfg['self_test'] and bytes(inferior.read_memory(end_address, len(TASK_END_SIGNATURE))) != TASK_END_SIGNATURE:
+            raise RuntimeError('task_end_instruction_signature_mismatch')
 
         def hit_limit():
-            return state['hits'] + state['req2buf_hits'] >= 100 or state['errors'] >= 3
+            return (state['hits'] + state['req2buf_hits'] + state['task_end_hits'] >= 100
+                    or state['errors'] >= 3)
 
         def read_word(address):
             return int.from_bytes(bytes(inferior.read_memory(address, 8)), 'little')
@@ -195,12 +207,30 @@ def trace_in_gdb(gdb):
                         # user_context survives asynchronous Task copies. Keep its
                         # pointer only in memory, never read the pointed-to object.
                         watched_tasks[record['task_id']] = read_word(task + 0x58)
+                        record['packed_request'] = {
+                            'enabled': bool(bytes(inferior.read_memory(task + 0x1c0, 1))[0]),
+                            'command_slot': read_word(task + 0x60),
+                            'request_length': read_word(task + 0x1d8),
+                            'response_length': read_word(task + 0x200),
+                            'payload_read': False,
+                        }
                         frames = []
                         frame = gdb.newest_frame()
                         for _ in range(6):
                             if frame is None:
                                 break
                             pc = frame.pc()
+                            if pc == business_return:
+                                # r14 is a callee-saved business-object pointer
+                                # in this one verified caller. Read only code
+                                # pointers and its command, never request data.
+                                business = int(frame.read_register('r14'))
+                                vtable = read_word(business)
+                                record['business_dispatch'] = {
+                                    'vtable_offset': module_offset(vtable),
+                                    'serialize_offset': module_offset(read_word(vtable + 0x10)),
+                                    'cmd_id': int.from_bytes(bytes(inferior.read_memory(business + 0xc, 4)), 'little'),
+                                }
                             if cfg.get('load_bias', 0) <= pc < cfg.get('load_bias', 0) + 0xb000000:
                                 frames.append(hex(pc - cfg.get('load_bias', 0)))
                             frame = frame.older()
@@ -236,6 +266,37 @@ def trace_in_gdb(gdb):
                         'payload_read': False,
                     })
                     save(out, state)
+                    return hit_limit()
+                except Exception:
+                    state['errors'] += 1
+                    return hit_limit()
+
+        class ObserveTaskEnd(gdb.Breakpoint):
+            def stop(self):
+                state['task_end_hits'] += 1
+                try:
+                    # Callback has returned; the saved Task ID/context and
+                    # error inputs are still intact. Two pushed stack args
+                    # mean the saved error code is now at rsp+0x1c.
+                    task_id = int(gdb.parse_and_eval('$r13d')) & 0xffffffff
+                    context = int(gdb.parse_and_eval('$r12'))
+                    if task_id not in watched_tasks or watched_tasks[task_id] != context:
+                        return hit_limit()
+                    stack = int(gdb.parse_and_eval('$rsp'))
+                    error_code = int.from_bytes(bytes(inferior.read_memory(stack + 0x1c, 4)), 'little', signed=True)
+                    error_type = int(gdb.parse_and_eval('$r14d')) & 0xffffffff
+                    callback_result = int(gdb.parse_and_eval('$eax')) & 0xffffffff
+                    if callback_result >= 0x80000000:
+                        callback_result -= 0x100000000
+                    state['task_end_events'].append({
+                        'task_id': task_id, 'user_context_matches': True,
+                        'error_type': error_type, 'error_code': error_code,
+                        'callback_result': callback_result,
+                        'req2buf_observed': any(x['task_id'] == task_id for x in state['req2buf_events']),
+                        'thread_id': gdb.selected_thread().num,
+                        'payload_read': False,
+                    })
+                    save(out, state)
                     return True
                 except Exception:
                     state['errors'] += 1
@@ -243,6 +304,7 @@ def trace_in_gdb(gdb):
 
         bp = Observe('*' + hex(address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
         req_bp = ObserveReq2Buf('*' + hex(req_address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
+        end_bp = ObserveTaskEnd('*' + hex(end_address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
         state['status'] = 'observing'
         state['observation_started_at'] = datetime.now().astimezone().isoformat(timespec='seconds')
         observation_start = time.monotonic()
@@ -256,7 +318,7 @@ def trace_in_gdb(gdb):
         state['status'] = 'probe_error'
         state['error_type'] = type(error).__name__
     finally:
-        for breakpoint in (bp, req_bp):
+        for breakpoint in (bp, req_bp, end_bp):
             if breakpoint is not None:
                 try:
                     breakpoint.delete()
@@ -344,17 +406,29 @@ def self_test():
         c.write_text(r'''#include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+struct Buffer { void *data; uint64_t pos, length, capacity, unit; };
 struct Task {
     uint32_t id, cmd; uint64_t channel; uint32_t select, protocol;
     uint64_t cap, size; const char *cgi; char padding[0x28]; void *context;
+    uint64_t command; char padding2[0x158]; uint8_t packed; char padding3[7];
+    struct Buffer request, response;
 };
-struct Buffer { void *data; uint64_t pos, length, capacity, unit; };
+struct Business { void **vtable; uint32_t id, cmd; };
 struct Bridge { void **vtable; };
 struct Manager { char padding[0x48]; struct Bridge *bridge; };
 _Static_assert(offsetof(struct Task, context) == 0x58, "Task context offset");
 _Static_assert(offsetof(struct Buffer, length) == 0x10, "Buffer length offset");
+_Static_assert(offsetof(struct Task, packed) == 0x1c0, "Task packed flag offset");
+_Static_assert(offsetof(struct Task, request) == 0x1c8, "Task request buffer offset");
+_Static_assert(sizeof(struct Task) == 0x218, "Task size");
 __attribute__((noinline)) void observe_fixture(void *mgr, struct Task *task) {
     asm volatile("" : : "r"(mgr), "r"(task) : "memory");
+}
+__attribute__((noinline)) void business_fixture(void *mgr, struct Task *task, struct Business *business) {
+    register struct Business *saved asm("r14") = business;
+    asm volatile("" : : "r"(saved) : "memory");
+    observe_fixture(mgr, task);
+    asm volatile(".global observe_business_return\nobserve_business_return:\n" : : "r"(saved) : "memory");
 }
 __attribute__((naked, noinline)) void req_fixture(void *mgr, uint32_t id, void *context,
                                                void *out, void *extend, int result) {
@@ -365,18 +439,33 @@ __attribute__((naked, noinline)) void req_fixture(void *mgr, uint32_t id, void *
         ".global observe_req_result\nobserve_req_result:\n\tnop\n\t"
         "pop %r15\n\tpop %r14\n\tpop %r13\n\tpop %rbx\n\tpop %rbp\n\tret\n\t");
 }
+__attribute__((naked, noinline)) void end_fixture(void *mgr, uint32_t id, void *context,
+                                               int error_type, int error_code, int result) {
+    asm volatile(
+        "push %r12\n\tpush %r13\n\tpush %r14\n\tsub $0x20,%rsp\n\t"
+        "mov %esi,%r13d\n\tmov %rdx,%r12\n\tmov %ecx,%r14d\n\t"
+        "mov %r8d,0x1c(%rsp)\n\tmov %r9d,%eax\n\t"
+        ".global observe_end_result\nobserve_end_result:\n\tnop\n\t"
+        "add $0x20,%rsp\n\tpop %r14\n\tpop %r13\n\tpop %r12\n\tret\n\t");
+}
 int main(void) {
     int context=0, unrelated=0;
     void *vtable[8]={0}; vtable[7]=(void*)observe_fixture;
     struct Bridge bridge={vtable}; struct Manager manager={.bridge=&bridge};
+    void *business_vtable[3]={0}; business_vtable[2]=(void*)business_fixture;
+    struct Business business={.vtable=business_vtable,.cmd=522};
     struct Buffer out={.length=123}, extend={.length=9};
     struct Task task={.id=7,.cmd=522,.select=2,.cap=97,
-                     .cgi="/cgi-bin/micromsg-bin/newsendmsg",.context=&context};
+                     .cgi="/cgi-bin/micromsg-bin/newsendmsg",.context=&context,
+                     .command=522,.packed=1,.request={.length=211}};
     task.size=strlen(task.cgi);
-    observe_fixture(&manager,&task);
+    business_fixture(&manager,&task,&business);
     req_fixture(&manager,8,&context,&out,&extend,1);
     req_fixture(&manager,7,&unrelated,&out,&extend,1);
     req_fixture(&manager,7,&context,&out,&extend,1);
+    end_fixture(&manager,8,&context,4,-123,-7);
+    end_fixture(&manager,7,&unrelated,4,-123,-7);
+    end_fixture(&manager,7,&context,4,-123,-7);
     return 0;
 }
 ''')
@@ -392,13 +481,26 @@ int main(void) {
             raise ValueError('Synthetic debugger validation failed: ' + result.get('status', 'unknown'))
         if any(x['cmd_id'] != 522 or x['cgi_offset'] != '0x18' for x in result['events']):
             raise ValueError('Synthetic task fields did not match')
+        event = result['events'][0]
+        packed = event['packed_request']
+        if (not packed['enabled'] or packed['command_slot'] != 522 or packed['request_length'] != 211
+                or packed['response_length'] != 0 or packed['payload_read']
+                or event.get('business_dispatch', {}).get('cmd_id') != 522
+                or not event.get('business_dispatch', {}).get('serialize_offset')):
+            raise ValueError('Synthetic packed Task/business observation failed')
         callbacks = result.get('req2buf_events', [])
         if (len(callbacks) != 1 or result['req2buf_hits'] != 3
                 or callbacks[0]['out_length'] != 123 or callbacks[0]['extend_length'] != 9
                 or not callbacks[0]['callback_returned_true'] or callbacks[0]['payload_read']
                 or not callbacks[0]['bridge_dispatch_offset']):
             raise ValueError('Synthetic task/callback correlation failed')
-        return {'ok': True, 'scope': 'synthetic_two_hardware_breakpoints_task_callback_correlation',
+        completion = result.get('task_end_events', [])
+        if (len(completion) != 1 or result['task_end_hits'] != 3
+                or completion[0]['error_type'] != 4 or completion[0]['error_code'] != -123
+                or completion[0]['callback_result'] != -7 or not completion[0]['req2buf_observed']
+                or completion[0]['payload_read'] or result['errors']):
+            raise ValueError('Synthetic task completion correlation failed')
+        return {'ok': True, 'scope': 'synthetic_three_hardware_breakpoints_task_lifecycle_correlation',
                 'wechat_runtime_verified': False, 'message_send_performed': False}
 
 
@@ -488,6 +590,7 @@ def observe(seconds):
     return {'ok': result.get('status') == 'captured' and cleanup['verified'], 'status': result.get('status'),
             'event_count': len(result.get('events', [])), 'result_path': str(work/'result.json'),
             'req2buf_event_count': len(result.get('req2buf_events', [])),
+            'task_end_event_count': len(result.get('task_end_events', [])),
             'message_send_performed': False, 'cleanup': cleanup,
             'observation_window': {key: result.get(key) for key in
                                    ('observation_started_at', 'observation_ended_at',

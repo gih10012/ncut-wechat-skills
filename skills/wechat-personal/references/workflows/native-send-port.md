@@ -10,9 +10,13 @@ Mac 的业务 protobuf 构造可参考，但 ARM64 调用代码及 Task 模板�
 
 ## 下一步观测
 
-已安装脚本为 `scripts/native_send_probe.py`，使用系统 GDB 的两个硬件执行断点，最多60秒或合计100次命中。不调用发送函数、不改写消息载荷、不保存聊天正文或凭证、不更改全局 ptrace 设置。断点命中会短暂停住客户端线程以读取参数；结束后删除断点并脱离。只记录两个固定消息 CGI 的任务编号、命令编号、通道字段和最多6层本模块调用地址；对匹配任务再记录序列化回调的返回bool、桥函数模块偏移、两个输出长度和线程，不读取消息正文。
+已安装脚本为 `scripts/native_send_probe.py`，使用系统 GDB 的三个硬件执行断点，最多60秒或合计100次命中。不调用发送函数、不改写消息载荷、不保存聊天正文或凭证、不更改全局 ptrace 设置。断点命中会短暂停住客户端线程以读取参数；结束后删除断点并脱离。只记录两个固定消息 CGI 的任务编号、命令编号、通道字段和最多6层本模块调用地址；对匹配任务再记录序列化回调的返回bool、桥函数模块偏移、两个输出长度及完成回调的错误编号和返回整数，不读取消息正文。
 
-第二个候选断点位于公共 `StnManager::Req2Buf` 的虚调用返回点 `0x8e828ed`，该处 `ebp=task_id`、`r13=user_context`、`r15=outbuffer`、`r14=extend`、`rbx=manager`，下一条之后才覆盖ebp。通过Task ID和`Task+0x58`的user_context双重关联；context地址仅短期保存在调试器内存，不落盘或解引用。缓冲区只读`+0x10`长度。`manager+0x48 → bridge vtable+0x38`区分默认桥与MM专用桥，记录的地址不冒称最终业务回调。此回调点来自当前ELF静态调用链和独立复核，SHA及现场指令签名均检查，实际微信消息关联仍待观测。回调成功也不证明服务端送达。
+第二个断点位于公共 `StnManager::Req2Buf` 的虚调用返回点 `0x8e828ed`，该处 `ebp=task_id`、`r13=user_context`、`r15=outbuffer`、`r14=extend`、`rbx=manager`，下一条之后才覆盖ebp。通过Task ID和`Task+0x58`的user_context双重关联；context地址仅短期保存在调试器内存，不落盘或解引用。缓冲区只读`+0x10`长度。`manager+0x48 → bridge vtable+0x38`区分默认桥与MM专用桥，记录的地址不冒称最终业务回调。此回调点已有下述真实消息关联证据，SHA及现场指令签名均检查。回调成功也不证明服务端送达。
+
+第三个候选断点位于公共 `StnManager::OnTaskEnd` 的虚调用返回点 `0x8e82d23`，该处 `r13d=task_id`、`r12=user_context`、`r14d=error_type`、`[rsp+0x1c]=error_code`、`eax=callback_result`。错误编号的栈偏移已计入调用前额外压入的两个参数。继续以Task ID/context双重关联，捕获首个匹配完成回调后结束；只捕获Task而未捕获完成回调时，`task_end_event_count`为0，不能当成完整生命周期观测。完成回调返回值不是送达证明，仍需单独验收主动发送及接收端结果。
+
+StartTask同时只读Task的`+0x1c0`打包标志、`+0x60`命令槽、`+0x1c8/+0x1f0`两个AutoBuffer长度。仅当调用帧精确匹配已观察的`0x79e3e9e`，才用该帧保存的r14定位业务对象，记录vtable及其`+0x10`序列化函数的模块偏移和命令编号；不读取业务内容。当前ELF显示Task大小为`0x218`，构造前以`0xaa`填充并调用真实构造函数，发送请求还经过`micromsg.RequestInfo`包装，不能直接塞入原始文字protobuf。以上新增元数据及OnTaskEnd点已通过合成验证，真实微信验证仍待下一轮观测。
 
 先用普通用户运行：
 
@@ -20,7 +24,7 @@ Mac 的业务 protobuf 构造可参考，但 ARM64 调用代码及 Task 模板�
 python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py self-test
 ```
 
-2026-09-20此自测通过真实 GDB 启动的合成子进程验证了两个硬件断点、`+0x18`字符串解析、错误Task ID/错误context过滤和输出长度读取，未验证微信运行时的消息关联。真实观测需要当前桌面用户通过 sudo 启动：
+2026-09-20此自测通过真实 GDB 启动的合成子进程验证了三个硬件断点、`+0x18`字符串解析、打包Task元数据、调用帧业务函数解析、两种回调的错误Task ID/错误context过滤，以及完成回调的有符号错误编号读取；合成验证不替代微信运行时验证。真实观测需要当前桌面用户通过 sudo 启动：
 
 ```bash
 sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py observe
