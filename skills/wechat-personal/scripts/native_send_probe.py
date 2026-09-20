@@ -17,6 +17,8 @@ import time
 EXPECTED = '2ca28ea56b1a400543d0128ebaf0b93f88172dd66dc0426d3d74fdb971eab959'
 ENTRY = 0x8f60a90
 PROLOGUE = bytes.fromhex('4156534881ec080100004889f34989fe')
+REQ2BUF_RETURN = 0x8e828ed
+REQ2BUF_SIGNATURE = bytes.fromhex('4883c43089c5e996000000')
 CGIS = ('/cgi-bin/micromsg-bin/newsendmsg', '/cgi-bin/micromsg-bin/uploadmsgimg')
 
 
@@ -123,12 +125,15 @@ def trace_in_gdb(gdb):
     cfg = json.loads(Path(os.environ['NCUT_WECHAT_OBSERVE_CONFIG']).read_text())
     out = Path(cfg['output'])
     state = {'status': 'starting', 'events': [], 'hits': 0, 'errors': 0,
+             'req2buf_events': [], 'req2buf_hits': 0,
              'message_send_performed': False, 'process_payload_written': False,
              'breakpoint_type': 'hardware', 'self_test': cfg['self_test']}
     bp = None
+    req_bp = None
     inferior = None
     attached = False
     observation_start = None
+    watched_tasks = {}
     try:
         for command in ('set pagination off', 'set confirm off', 'set print thread-events off',
                         'set auto-load off', 'set debuginfod enabled off',
@@ -138,6 +143,7 @@ def trace_in_gdb(gdb):
             gdb.execute('file ' + json.dumps(cfg['fixture']), to_string=True)
             gdb.execute('starti', to_string=True)
             address = int(gdb.parse_and_eval('&observe_fixture'))
+            req_address = int(gdb.parse_and_eval('&observe_req_result'))
         else:
             # Root cannot open a user-only FUSE mount. Use the verified plain-file
             # copy for ELF metadata; target addresses still come from /proc/maps.
@@ -145,9 +151,22 @@ def trace_in_gdb(gdb):
             gdb.execute('attach ' + str(cfg['pid']), to_string=True)
             attached = True
             address = cfg['address']
+            req_address = cfg['load_bias'] + REQ2BUF_RETURN
         inferior = gdb.selected_inferior()
         if not cfg['self_test'] and bytes(inferior.read_memory(address, len(PROLOGUE))) != PROLOGUE:
             raise RuntimeError('instruction_signature_mismatch')
+        if not cfg['self_test'] and bytes(inferior.read_memory(req_address, len(REQ2BUF_SIGNATURE))) != REQ2BUF_SIGNATURE:
+            raise RuntimeError('req2buf_instruction_signature_mismatch')
+
+        def hit_limit():
+            return state['hits'] + state['req2buf_hits'] >= 100 or state['errors'] >= 3
+
+        def read_word(address):
+            return int.from_bytes(bytes(inferior.read_memory(address, 8)), 'little')
+
+        def module_offset(address):
+            base = cfg.get('load_bias', 0)
+            return hex(address - base) if base <= address < base + 0xb000000 else None
 
         class Observe(gdb.Breakpoint):
             def stop(self):
@@ -160,19 +179,22 @@ def trace_in_gdb(gdb):
                         size = int.from_bytes(string[8:16], 'little')
                         ptr = int.from_bytes(string[16:24], 'little')
                         if not 1 <= size <= 96:
-                            return state['hits'] >= 100
+                            return hit_limit()
                         cgi = bytes(inferior.read_memory(ptr, size)).decode('ascii', 'strict')
                     else:
                         size = string[0] >> 1
                         if not 1 <= size <= 22:
-                            return state['hits'] >= 100
+                            return hit_limit()
                         cgi = string[1:1+size].decode('ascii', 'strict')
-                    if cgi in CGIS:
+                    if cgi in CGIS and len(state['events']) < 2:
                         record = {'cgi': cgi, 'task_id': int.from_bytes(header[0:4], 'little'),
                                   'cmd_id': int.from_bytes(header[4:8], 'little'),
                                   'channel_select': int.from_bytes(header[16:20], 'little'),
                                   'transport_protocol': int.from_bytes(header[20:24], 'little'),
                                   'cgi_offset': '0x18', 'thread_id': gdb.selected_thread().num}
+                        # user_context survives asynchronous Task copies. Keep its
+                        # pointer only in memory, never read the pointed-to object.
+                        watched_tasks[record['task_id']] = read_word(task + 0x58)
                         frames = []
                         frame = gdb.newest_frame()
                         for _ in range(6):
@@ -187,9 +209,40 @@ def trace_in_gdb(gdb):
                         save(out, state)
                 except Exception:
                     state['errors'] += 1
-                return len(state['events']) >= 2 or state['hits'] >= 100 or state['errors'] >= 3
+                return hit_limit()
+
+        class ObserveReq2Buf(gdb.Breakpoint):
+            def stop(self):
+                state['req2buf_hits'] += 1
+                try:
+                    # These callee-saved registers hold the inputs immediately
+                    # after the common StnManager virtual callback has returned.
+                    task_id = int(gdb.parse_and_eval('$ebp')) & 0xffffffff
+                    context = int(gdb.parse_and_eval('$r13'))
+                    if task_id not in watched_tasks or watched_tasks[task_id] != context:
+                        return hit_limit()
+                    manager = int(gdb.parse_and_eval('$rbx'))
+                    bridge = read_word(manager + 0x48)
+                    dispatch = read_word(read_word(bridge) + 0x38) if bridge else 0
+                    out_buffer = int(gdb.parse_and_eval('$r15'))
+                    extend_buffer = int(gdb.parse_and_eval('$r14'))
+                    state['req2buf_events'].append({
+                        'task_id': task_id, 'user_context_matches': True,
+                        'callback_returned_true': bool(int(gdb.parse_and_eval('$al'))),
+                        'bridge_dispatch_offset': module_offset(dispatch),
+                        'out_length': read_word(out_buffer + 0x10),
+                        'extend_length': read_word(extend_buffer + 0x10),
+                        'thread_id': gdb.selected_thread().num,
+                        'payload_read': False,
+                    })
+                    save(out, state)
+                    return True
+                except Exception:
+                    state['errors'] += 1
+                    return hit_limit()
 
         bp = Observe('*' + hex(address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
+        req_bp = ObserveReq2Buf('*' + hex(req_address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
         state['status'] = 'observing'
         state['observation_started_at'] = datetime.now().astimezone().isoformat(timespec='seconds')
         observation_start = time.monotonic()
@@ -203,11 +256,12 @@ def trace_in_gdb(gdb):
         state['status'] = 'probe_error'
         state['error_type'] = type(error).__name__
     finally:
-        if bp is not None:
-            try:
-                bp.delete()
-            except Exception:
-                pass
+        for breakpoint in (bp, req_bp):
+            if breakpoint is not None:
+                try:
+                    breakpoint.delete()
+                except Exception:
+                    pass
         # An interrupted attach can already have selected the target.
         if not cfg['self_test']:
             try:
@@ -287,7 +341,45 @@ def self_test():
     with tempfile.TemporaryDirectory(prefix='ncut-observe-test-') as tmp:
         work = Path(tmp)
         c = work / 'fixture.c'
-        c.write_text('''#include <stdint.h>\n#include <unistd.h>\n#include <string.h>\nstruct Task { uint32_t id, cmd; uint64_t channel; uint32_t select, protocol; uint64_t cap, size; const char *cgi; };\n__attribute__((noinline)) void observe_fixture(void *mgr, struct Task *task) { asm volatile("" : : "r"(mgr), "r"(task) : "memory"); }\nint main(void) { struct Task t={7,522,0,2,0,97,0,"/cgi-bin/micromsg-bin/newsendmsg"}; t.size=strlen(t.cgi); for(int i=0;i<3;i++){observe_fixture(&t,&t);usleep(10000);} return 0;}\n''')
+        c.write_text(r'''#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+struct Task {
+    uint32_t id, cmd; uint64_t channel; uint32_t select, protocol;
+    uint64_t cap, size; const char *cgi; char padding[0x28]; void *context;
+};
+struct Buffer { void *data; uint64_t pos, length, capacity, unit; };
+struct Bridge { void **vtable; };
+struct Manager { char padding[0x48]; struct Bridge *bridge; };
+_Static_assert(offsetof(struct Task, context) == 0x58, "Task context offset");
+_Static_assert(offsetof(struct Buffer, length) == 0x10, "Buffer length offset");
+__attribute__((noinline)) void observe_fixture(void *mgr, struct Task *task) {
+    asm volatile("" : : "r"(mgr), "r"(task) : "memory");
+}
+__attribute__((naked, noinline)) void req_fixture(void *mgr, uint32_t id, void *context,
+                                               void *out, void *extend, int result) {
+    asm volatile(
+        "push %rbp\n\tpush %rbx\n\tpush %r13\n\tpush %r14\n\tpush %r15\n\t"
+        "mov %rdi,%rbx\n\tmov %esi,%ebp\n\tmov %rdx,%r13\n\t"
+        "mov %rcx,%r15\n\tmov %r8,%r14\n\tmov %r9d,%eax\n\t"
+        ".global observe_req_result\nobserve_req_result:\n\tnop\n\t"
+        "pop %r15\n\tpop %r14\n\tpop %r13\n\tpop %rbx\n\tpop %rbp\n\tret\n\t");
+}
+int main(void) {
+    int context=0, unrelated=0;
+    void *vtable[8]={0}; vtable[7]=(void*)observe_fixture;
+    struct Bridge bridge={vtable}; struct Manager manager={.bridge=&bridge};
+    struct Buffer out={.length=123}, extend={.length=9};
+    struct Task task={.id=7,.cmd=522,.select=2,.cap=97,
+                     .cgi="/cgi-bin/micromsg-bin/newsendmsg",.context=&context};
+    task.size=strlen(task.cgi);
+    observe_fixture(&manager,&task);
+    req_fixture(&manager,8,&context,&out,&extend,1);
+    req_fixture(&manager,7,&unrelated,&out,&extend,1);
+    req_fixture(&manager,7,&context,&out,&extend,1);
+    return 0;
+}
+''')
         exe = work / 'fixture'
         subprocess.run(['/usr/bin/gcc', '-g', '-O0', '-fno-pie', '-no-pie', str(c), '-o', str(exe)],
                        check=True, capture_output=True, timeout=20)
@@ -296,11 +388,17 @@ def self_test():
         copied.chmod(0o700)  # Only the synthetic fixture is executed by this test.
         cfg = {'self_test': True, 'fixture': str(copied), 'output': str(work/'result.json'), 'load_bias': 0}
         result = run_gdb(cfg, work, 8)
-        if result.get('status') != 'captured' or len(result.get('events', [])) != 2:
+        if result.get('status') != 'captured' or len(result.get('events', [])) != 1:
             raise ValueError('Synthetic debugger validation failed: ' + result.get('status', 'unknown'))
         if any(x['cmd_id'] != 522 or x['cgi_offset'] != '0x18' for x in result['events']):
             raise ValueError('Synthetic task fields did not match')
-        return {'ok': True, 'scope': 'synthetic_child_hardware_breakpoint_and_parser',
+        callbacks = result.get('req2buf_events', [])
+        if (len(callbacks) != 1 or result['req2buf_hits'] != 3
+                or callbacks[0]['out_length'] != 123 or callbacks[0]['extend_length'] != 9
+                or not callbacks[0]['callback_returned_true'] or callbacks[0]['payload_read']
+                or not callbacks[0]['bridge_dispatch_offset']):
+            raise ValueError('Synthetic task/callback correlation failed')
+        return {'ok': True, 'scope': 'synthetic_two_hardware_breakpoints_task_callback_correlation',
                 'wechat_runtime_verified': False, 'message_send_performed': False}
 
 
@@ -389,6 +487,7 @@ def observe(seconds):
         save(work/'result.json', result)
     return {'ok': result.get('status') == 'captured' and cleanup['verified'], 'status': result.get('status'),
             'event_count': len(result.get('events', [])), 'result_path': str(work/'result.json'),
+            'req2buf_event_count': len(result.get('req2buf_events', [])),
             'message_send_performed': False, 'cleanup': cleanup,
             'observation_window': {key: result.get(key) for key in
                                    ('observation_started_at', 'observation_ended_at',
