@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+"""Explicit development aid: bounded hardware-breakpoint observation, never sends."""
+import argparse
+from contextlib import contextmanager
+import hashlib
+import json
+import os
+from pathlib import Path
+import pwd
+import signal
+import subprocess
+import tempfile
+import time
+
+EXPECTED = '2ca28ea56b1a400543d0128ebaf0b93f88172dd66dc0426d3d74fdb971eab959'
+ENTRY = 0x8f60a90
+PROLOGUE = bytes.fromhex('4156534881ec080100004889f34989fe')
+CGIS = ('/cgi-bin/micromsg-bin/newsendmsg', '/cgi-bin/micromsg-bin/uploadmsgimg')
+
+
+@contextmanager
+def desktop_identity(uid, gid):
+    """FUSE AppImages allow their mounting user, not necessarily root."""
+    previous_uid, previous_gid = os.geteuid(), os.getegid()
+    try:
+        if previous_gid != gid:
+            os.setegid(gid)
+        if previous_uid != uid:
+            os.seteuid(uid)
+        yield
+    finally:
+        if os.geteuid() != previous_uid:
+            os.seteuid(previous_uid)
+        if os.getegid() != previous_gid:
+            os.setegid(previous_gid)
+
+
+def copy_verified_executable(source, destination, expected=EXPECTED):
+    """Copy only the program image; never copy process memory or user data."""
+    digest = hashlib.sha256()
+    count = 0
+    try:
+        with source.open('rb') as src, destination.open('xb') as dst:
+            destination.chmod(0o600)
+            while block := src.read(1024 * 1024):
+                count += len(block)
+                if count > 256 * 1024 * 1024:
+                    raise ValueError('Executable exceeds the bounded copy size')
+                digest.update(block)
+                dst.write(block)
+        if digest.hexdigest() != expected:
+            raise ValueError('Unsupported WeChat binary; revalidate the Linux addresses first')
+        return digest.hexdigest()
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+
+
+def save(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    path.chmod(0o600)
+
+
+def trace_in_gdb(gdb):
+    cfg = json.loads(Path(os.environ['NCUT_WECHAT_OBSERVE_CONFIG']).read_text())
+    out = Path(cfg['output'])
+    state = {'status': 'starting', 'events': [], 'hits': 0, 'errors': 0,
+             'message_send_performed': False, 'process_payload_written': False,
+             'breakpoint_type': 'hardware', 'self_test': cfg['self_test']}
+    bp = None
+    inferior = None
+    attached = False
+    try:
+        for command in ('set pagination off', 'set confirm off', 'set print thread-events off',
+                        'set auto-load off', 'set debuginfod enabled off',
+                        'set auto-solib-add off', 'set exec-file-mismatch off'):
+            gdb.execute(command, to_string=True)
+        if cfg['self_test']:
+            gdb.execute('file ' + json.dumps(cfg['fixture']), to_string=True)
+            gdb.execute('starti', to_string=True)
+            address = int(gdb.parse_and_eval('&observe_fixture'))
+        else:
+            # Root cannot open a user-only FUSE mount. Use the verified plain-file
+            # copy for ELF metadata; target addresses still come from /proc/maps.
+            gdb.execute('file ' + json.dumps(cfg['binary_copy']), to_string=True)
+            gdb.execute('attach ' + str(cfg['pid']), to_string=True)
+            attached = True
+            address = cfg['address']
+        inferior = gdb.selected_inferior()
+        if not cfg['self_test'] and bytes(inferior.read_memory(address, len(PROLOGUE))) != PROLOGUE:
+            raise RuntimeError('instruction_signature_mismatch')
+
+        class Observe(gdb.Breakpoint):
+            def stop(self):
+                state['hits'] += 1
+                try:
+                    task = int(gdb.parse_and_eval('$rsi'))
+                    header = bytes(inferior.read_memory(task, 0x30))
+                    string = header[0x18:0x30]
+                    if string[0] & 1:
+                        size = int.from_bytes(string[8:16], 'little')
+                        ptr = int.from_bytes(string[16:24], 'little')
+                        if not 1 <= size <= 96:
+                            return state['hits'] >= 100
+                        cgi = bytes(inferior.read_memory(ptr, size)).decode('ascii', 'strict')
+                    else:
+                        size = string[0] >> 1
+                        if not 1 <= size <= 22:
+                            return state['hits'] >= 100
+                        cgi = string[1:1+size].decode('ascii', 'strict')
+                    if cgi in CGIS:
+                        record = {'cgi': cgi, 'task_id': int.from_bytes(header[0:4], 'little'),
+                                  'cmd_id': int.from_bytes(header[4:8], 'little'),
+                                  'channel_select': int.from_bytes(header[16:20], 'little'),
+                                  'transport_protocol': int.from_bytes(header[20:24], 'little'),
+                                  'cgi_offset': '0x18', 'thread_id': gdb.selected_thread().num}
+                        frames = []
+                        frame = gdb.newest_frame()
+                        for _ in range(6):
+                            if frame is None:
+                                break
+                            pc = frame.pc()
+                            if cfg.get('load_bias', 0) <= pc < cfg.get('load_bias', 0) + 0xb000000:
+                                frames.append(hex(pc - cfg.get('load_bias', 0)))
+                            frame = frame.older()
+                        record['module_callers'] = frames
+                        state['events'].append(record)
+                        save(out, state)
+                except Exception:
+                    state['errors'] += 1
+                return len(state['events']) >= 2 or state['hits'] >= 100 or state['errors'] >= 3
+
+        bp = Observe('*' + hex(address), type=gdb.BP_HARDWARE_BREAKPOINT, internal=True)
+        state['status'] = 'observing'
+        save(out, state)
+        print('OBSERVING: send one short text manually from Linux WeChat to File Transfer Assistant.', flush=True)
+        gdb.execute('continue', to_string=True)
+        state['status'] = 'captured' if state['events'] else 'no_matching_task'
+    except KeyboardInterrupt:
+        state['status'] = 'captured' if state['events'] else 'deadline_no_matching_task'
+    except Exception as error:
+        state['status'] = 'probe_error'
+        state['error_type'] = type(error).__name__
+    finally:
+        if bp is not None:
+            try:
+                bp.delete()
+            except Exception:
+                pass
+        # An interrupted attach can already have selected the target.
+        if not cfg['self_test']:
+            try:
+                attached = attached or gdb.selected_inferior().pid == cfg['pid']
+            except Exception:
+                pass
+        if attached:
+            try:
+                gdb.execute('detach', to_string=True)
+                state['detached'] = True
+            except Exception:
+                state['detached'] = False
+        elif cfg['self_test'] and inferior is not None:
+            try:
+                gdb.execute('kill', to_string=True)
+            except Exception:
+                pass
+        save(out, state)
+    gdb.execute('quit', to_string=True)
+
+
+def run_gdb(cfg, work, seconds):
+    config = work / 'config.json'
+    save(config, cfg)
+    env = {**os.environ, 'NCUT_WECHAT_OBSERVE_CONFIG': str(config), 'DEBUGINFOD_URLS': ''}
+    log = work / 'debugger.log'
+    script = str(Path(__file__).resolve())
+    load_script = f'python exec(compile(open({script!r}).read(), {script!r}, "exec"))'
+    with log.open('wb') as output:
+        log.chmod(0o600)
+        proc = subprocess.Popen(['/usr/bin/gdb', '--nx', '--nh', '--quiet', '--batch',
+                                 '-iex', 'set auto-load off', '-iex', 'set debuginfod enabled off',
+                                 '-ex', load_script],
+                                stdout=output, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+        try:
+            deadline = time.monotonic() + seconds
+            announced = False
+            while proc.poll() is None and time.monotonic() < deadline:
+                result = Path(cfg['output'])
+                if not announced and result.exists():
+                    try:
+                        state = json.loads(result.read_text())
+                    except (OSError, ValueError):
+                        state = {}
+                    if state.get('status') == 'observing':
+                        print('观测已就绪：现在请在 Linux 微信向文件传输助手手动发一条短文字；最多等待约60秒。', flush=True)
+                        announced = True
+                time.sleep(.2)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if proc.poll() is None:
+                proc.send_signal(signal.SIGINT)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=3)
+    result = Path(cfg['output'])
+    return json.loads(result.read_text()) if result.exists() else {'status': 'debugger_failed_before_result'}
+
+
+def self_test():
+    if os.geteuid() == 0:
+        raise ValueError('Run self-test as the regular user')
+    with tempfile.TemporaryDirectory(prefix='ncut-observe-test-') as tmp:
+        work = Path(tmp)
+        c = work / 'fixture.c'
+        c.write_text('''#include <stdint.h>\n#include <unistd.h>\n#include <string.h>\nstruct Task { uint32_t id, cmd; uint64_t channel; uint32_t select, protocol; uint64_t cap, size; const char *cgi; };\n__attribute__((noinline)) void observe_fixture(void *mgr, struct Task *task) { asm volatile("" : : "r"(mgr), "r"(task) : "memory"); }\nint main(void) { struct Task t={7,522,0,2,0,97,0,"/cgi-bin/micromsg-bin/newsendmsg"}; t.size=strlen(t.cgi); for(int i=0;i<3;i++){observe_fixture(&t,&t);usleep(10000);} return 0;}\n''')
+        exe = work / 'fixture'
+        subprocess.run(['/usr/bin/gcc', '-g', '-O0', '-fno-pie', '-no-pie', str(c), '-o', str(exe)],
+                       check=True, capture_output=True, timeout=20)
+        copied = work/'verified-fixture'
+        copy_verified_executable(exe, copied, hashlib.sha256(exe.read_bytes()).hexdigest())
+        copied.chmod(0o700)  # Only the synthetic fixture is executed by this test.
+        cfg = {'self_test': True, 'fixture': str(copied), 'output': str(work/'result.json'), 'load_bias': 0}
+        result = run_gdb(cfg, work, 8)
+        if result.get('status') != 'captured' or len(result.get('events', [])) != 2:
+            raise ValueError('Synthetic debugger validation failed: ' + result.get('status', 'unknown'))
+        if any(x['cmd_id'] != 522 or x['cgi_offset'] != '0x18' for x in result['events']):
+            raise ValueError('Synthetic task fields did not match')
+        return {'ok': True, 'scope': 'synthetic_child_hardware_breakpoint_and_parser',
+                'wechat_runtime_verified': False, 'message_send_performed': False}
+
+
+def observe(seconds):
+    sudo_uid = os.environ.get('SUDO_UID')
+    if os.geteuid() != 0 or not sudo_uid or int(sudo_uid) == 0:
+        raise ValueError('PROCESS_TRACE_PERMISSION_REQUIRED: invoke once with sudo from your desktop account')
+    uid = int(sudo_uid)
+    owner = pwd.getpwuid(uid)
+    found = []
+    for item in Path('/proc').iterdir():
+        if not item.name.isdigit():
+            continue
+        try:
+            status = (item/'status').read_text()
+            actual_uid = int(next(x for x in status.splitlines() if x.startswith('Uid:')).split()[1])
+            if actual_uid == uid and Path(os.readlink(item/'exe')).name == 'wechat':
+                found.append((item, status))
+        except (OSError, StopIteration):
+            pass
+    if len(found) != 1:
+        raise ValueError('Need exactly one running WeChat owned by your desktop account')
+    target, status = found[0]
+    start_time = (target/'stat').read_text().rsplit(')', 1)[1].split()[19]
+    state_line = next(x for x in status.splitlines() if x.startswith('State:'))
+    if int(next(x for x in status.splitlines() if x.startswith('TracerPid:')).split()[1]) or state_line.split()[1] in ('T', 't'):
+        raise ValueError('WeChat is already traced or stopped; leave it unchanged')
+    work = None
+    cleanup = {'verified': False}
+    stage = 'prepare_private_directory'
+    try:
+        with desktop_identity(uid, owner.pw_gid):
+            root = Path(owner.pw_dir)/'.local/state/ncut-wechat-skills/native-send-observe'
+            root.mkdir(parents=True, exist_ok=True, mode=0o700)
+            root.chmod(0o700)
+            work = Path(tempfile.mkdtemp(prefix='run-', dir=root))
+            stage = 'copy_appimage_as_desktop_user'
+            copied = work/'wechat.elf'
+            digest = copy_verified_executable(target/'exe', copied)
+            stage = 'read_desktop_process_maps'
+            exe_real = os.readlink(target/'exe')
+            mappings = [line.split(maxsplit=5) for line in (target/'maps').read_text().splitlines()]
+            bases = [int(x[0].split('-')[0], 16) for x in mappings
+                     if len(x) == 6 and x[2] == '00000000' and x[5] == exe_real]
+            if len(bases) != 1:
+                raise ValueError('Cannot determine unique WeChat ELF load bias')
+        cfg = {'self_test': False, 'pid': int(target.name), 'load_bias': bases[0],
+               'address': bases[0] + ENTRY, 'output': str(work/'result.json'),
+               'binary_sha256': digest, 'binary_copy': str(copied)}
+        stage = 'start_bounded_debugger'
+        result = run_gdb(cfg, work, seconds)
+    except OSError as error:
+        raise ValueError(f'{stage}: {type(error).__name__} (errno={error.errno})') from None
+    finally:
+        try:
+            current_start = (target/'stat').read_text().rsplit(')', 1)[1].split()[19]
+            if current_start == start_time:
+                after = (target/'status').read_text()
+                traced = int(next(x for x in after.splitlines() if x.startswith('TracerPid:')).split()[1])
+                stopped = next(x for x in after.splitlines() if x.startswith('State:')).split()[1] in ('T', 't')
+                if not traced and stopped:
+                    os.kill(int(target.name), signal.SIGCONT)
+                    time.sleep(.05)
+                    after = (target/'status').read_text()
+                    stopped = next(x for x in after.splitlines() if x.startswith('State:')).split()[1] in ('T', 't')
+                cleanup = {'verified': not traced and not stopped,
+                           'tracer_present': bool(traced), 'process_stopped': stopped}
+            else:
+                cleanup['reason'] = 'process_identity_changed'
+        except (OSError, StopIteration):
+            pass
+        if work is not None:
+            (work/'wechat.elf').unlink(missing_ok=True)
+            for file in work.iterdir():
+                file.chmod(0o600)
+                os.chown(file, uid, owner.pw_gid)
+            os.chown(work, uid, owner.pw_gid)
+    result['cleanup'] = cleanup
+    with desktop_identity(uid, owner.pw_gid):
+        save(work/'result.json', result)
+    return {'ok': result.get('status') == 'captured' and cleanup['verified'], 'status': result.get('status'),
+            'event_count': len(result.get('events', [])), 'result_path': str(work/'result.json'),
+            'message_send_performed': False, 'cleanup': cleanup}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('operation', choices=('self-test', 'observe'))
+    parser.add_argument('--seconds', type=int, default=60)
+    args = parser.parse_args()
+    if not 10 <= args.seconds <= 60:
+        parser.error('--seconds must be 10..60')
+    os.umask(0o077)
+    result = self_test() if args.operation == 'self-test' else observe(args.seconds)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get('ok') else 1
+
+
+try:
+    import gdb
+except ImportError:
+    if __name__ == '__main__':
+        try:
+            raise SystemExit(main())
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
+            print(json.dumps({'ok': False, 'error': str(error) if isinstance(error, ValueError) else type(error).__name__}))
+            raise SystemExit(1)
+else:
+    trace_in_gdb(gdb)
