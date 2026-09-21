@@ -189,13 +189,13 @@ class AccessTests(unittest.TestCase):
         self.assertIsNotNone(other['next'])
         self.assertEqual(other['service_candidates'][0]['id'], 'wecom')
 
-    def test_unavailable_send_match_keeps_discovery_route(self):
+    def test_partially_verified_send_keeps_discovery_route(self):
         root=SCRIPTS.parent.parent/'wechat-personal'
         result=search(root, '微信发送')
         self.assertEqual(result['matches'][0]['id'], 'send-message')
         self.assertIsNotNone(result['next'])
         self.assertEqual(result['service_candidates'][0]['status'], 'partially_verified')
-        self.assertEqual(result['service_candidates'][0]['capabilities']['send-message'], 'not_connected')
+        self.assertEqual(result['service_candidates'][0]['capabilities']['send-message'], 'partially_verified')
 
     def test_source_only_match_and_runtime_match_are_not_collectively_ready(self):
         with tempfile.TemporaryDirectory() as temp:

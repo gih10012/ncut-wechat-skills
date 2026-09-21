@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Pinned-build development trial: one authorized filehelper text, not a ready backend."""
+"""Pinned-build native text trial with persisted request IDs and explicit ownership."""
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
 import pwd
+import re
 import subprocess
 import sys
 import time
@@ -40,11 +41,18 @@ def blob(field, value):
     return varint((field << 3) | 2) + varint(len(value)) + value
 
 
-def make_payload(timestamp):
-    # A fixed destination and recognizable acceptance text limit this first trial.
-    text = ('Linux 微信原生发送验收 ' + REQUEST_ID).encode()
-    client_id = int.from_bytes(hashlib.sha256(REQUEST_ID.encode()).digest()[:4], 'little')
-    body = blob(1, blob(1, b'filehelper')) + blob(2, text)
+def make_payload(timestamp, text=None, request_id=REQUEST_ID, recipient='filehelper'):
+    text = text if text is not None else 'Linux 微信原生发送验收 ' + REQUEST_ID
+    if not isinstance(text, str) or not text or len(text.encode()) > 1024 or '\0' in text:
+        raise ValueError('Text must contain 1..1024 UTF-8 bytes and no NUL')
+    if not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{3,79}', request_id):
+        raise ValueError('request-id must be 4..80 ASCII letters/digits/dot/underscore/hyphen')
+    if (not isinstance(recipient, str) or not 1 <= len(recipient.encode()) <= 128
+            or not re.fullmatch(r'[A-Za-z0-9_.@-]+', recipient)):
+        raise ValueError('recipient must be an exact native chat ID, not a display name')
+    text = text.encode()
+    client_id = int.from_bytes(hashlib.sha256(request_id.encode()).digest()[:4], 'little') or 1
+    body = blob(1, blob(1, recipient.encode())) + blob(2, text)
     body += b'\x18\x01\x20' + varint(timestamp) + b'\x28' + varint(client_id)
     body += blob(6, b'<msgsource/>')
     return b'\x08\x01' + blob(2, body)
@@ -54,6 +62,9 @@ def save(path, value):
     temp = path.with_suffix(path.suffix + '.tmp')
     temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
     temp.chmod(0o600)
+    if os.geteuid() == 0:
+        owner = path.parent.stat()
+        os.chown(temp, owner.st_uid, owner.st_gid)
     temp.replace(path)
 
 
@@ -268,7 +279,7 @@ def run_injection(cfg, work):
     save(work/'debugger-process.json', {'pid': proc.pid})
     try:
         proc.wait(timeout=25)
-    except subprocess.TimeoutExpired:
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
         return {'status': 'debugger_still_running', 'debugger_pid': proc.pid,
                 'armed': False, 'automatic_retry_allowed': False}
     if not Path(cfg['injection_result']).exists():
@@ -328,18 +339,39 @@ def reserve_trial_work(root, name):
     return work
 
 
-def trial(send):
+def trial_name(request_id, send=True):
+    if request_id == REQUEST_ID:
+        return REQUEST_ID if send else 'native-roundtrip-v1'
+    return 'text-' + hashlib.sha256(request_id.encode()).hexdigest()[:24]
+
+
+def trial(send, text=None, request_id=REQUEST_ID, recipient='filehelper'):
     from native_send_probe import desktop_identity, run_desktop_preparation
-    uid = int(os.environ.get('SUDO_UID', '0'))
+    payload = make_payload(int(time.time()), text, request_id, recipient)
+    uid = int(os.environ.get('SUDO_UID', str(os.getuid())))
+    owner = pwd.getpwuid(uid)
+    root = Path(owner.pw_dir)/'.local/state/ncut-wechat-skills/native-send-trial'
+    work = root/trial_name(request_id, send)
+    fingerprint = hashlib.sha256((text if text is not None else 'Linux 微信原生发送验收 ' + REQUEST_ID).encode()).hexdigest()
+    if request_id != REQUEST_ID and work.exists():
+        previous = json.loads((work/'request.json').read_text())
+        if (previous.get('text_sha256') != fingerprint or previous.get('recipient') != recipient
+                or previous.get('send') != send):
+            raise ValueError('REQUEST_ID_CONFLICT: same request-id has different content')
+        # Generic sends replay their recorded outcome, never the mutation.
+        if (work/'result.json').exists():
+            result = inspect_trial(request_id)
+            return {**result, 'replayed': True}
+        raise ValueError('REQUEST_PENDING: inspect the existing request before retrying')
     if os.geteuid() != 0 or uid == 0:
         raise ValueError('Run with sudo from the desktop account; no client was touched')
-    owner = pwd.getpwuid(uid)
     with desktop_identity(uid, owner.pw_gid):
-        root = Path(owner.pw_dir)/'.local/state/ncut-wechat-skills/native-send-trial'
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         root.chmod(0o700)
         # One fixed acceptance operation; uncertainty never causes automatic replay.
-        work = reserve_trial_work(root, REQUEST_ID if send else 'native-roundtrip-v1')
+        work = reserve_trial_work(root, trial_name(request_id, send))
+        save(work/'request.json', {'request_id': request_id, 'recipient': recipient, 'send': send,
+                                  'text_sha256': fingerprint, 'status': 'reserved'})
     targets = []
     for target in Path('/proc').iterdir():
         if not target.name.isdigit():
@@ -356,32 +388,57 @@ def trial(send):
     start = (target/'stat').read_text().rsplit(')', 1)[1].split()[19]
     if not process_running_untraced(pid, start):
         raise ValueError('Client is already traced, stopped or exiting')
-    prepared = run_desktop_preparation(target, work, uid, owner.pw_gid)
-    helper = compile_helper(work, uid, owner.pw_gid)
-    cfg = {**prepared, 'pid': pid, 'start_time': start, 'uid': uid, 'gid': owner.pw_gid,
-           'binary_copy': str(work/'wechat.elf'), 'helper': str(helper),
-           'injection_result': str(work/'injection.json'), 'worker_result': str(work/'worker.json'),
-           'payload_hex': make_payload(int(time.time())).hex(), 'send': send}
-    save(work/'request.json', {'request_id': REQUEST_ID, 'recipient': 'filehelper', 'send': send,
-                              'status': 'reserved', 'runtime_verified': False})
-    result = run_injection(cfg, work)
+    cfg = None
+    result = None
+    stage = 'prepare_executable'
+    try:
+        prepared = run_desktop_preparation(target, work, uid, owner.pw_gid)
+        stage = 'compile_helper'
+        helper = compile_helper(work, uid, owner.pw_gid)
+        cfg = {**prepared, 'pid': pid, 'start_time': start, 'uid': uid, 'gid': owner.pw_gid,
+               'binary_copy': str(work/'wechat.elf'), 'helper': str(helper),
+               'injection_result': str(work/'injection.json'), 'worker_result': str(work/'worker.json'),
+               'payload_hex': payload.hex(), 'send': send}
+        stage = 'run_injection'
+        result = run_injection(cfg, work)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        result = {'status': 'local_failure', 'stage': stage,
+                  'error': str(error)[:500] if isinstance(error, ValueError) else type(error).__name__,
+                  'automatic_retry_allowed': False}
+    finally:
+        # A debugger that outlives the caller may still need its verified ELF.
+        debugger_live = False
+        try:
+            record = json.loads((work/'debugger-process.json').read_text())
+            debugger_live = Path('/proc', str(record['pid'])).exists()
+        except (OSError, ValueError, KeyError):
+            pass
+        if not debugger_live:
+            (work/'wechat.elf').unlink(missing_ok=True)
+            if cfg is not None:
+                cfg.pop('payload_hex', None)
+                save(work/'config.json', cfg)
+        for artifact in work.iterdir():
+            try:
+                artifact.chmod(0o600)
+                os.chown(artifact, uid, owner.pw_gid)
+            except FileNotFoundError:
+                # An independent debugger may atomically replace its temp file.
+                pass
     result['client_running_untraced'] = process_running_untraced(pid, start)
     result['recipient_delivery_verified'] = False
     result['helper_unload_policy'] = 'small_module_remains_until_client_exit_for_callback_safety'
+    result['request_id'] = request_id
+    result['completed_at'] = time.time()
     save(work/'result.json', result)
-    if result.get('status') != 'debugger_still_running':
-        (work/'wechat.elf').unlink(missing_ok=True)
-    for artifact in work.iterdir():
-        artifact.chmod(0o600)
-        os.chown(artifact, uid, owner.pw_gid)
     return {'result_path': str(work/'result.json'), **result}
 
 
-def inspect_trial():
+def inspect_trial(request_id=REQUEST_ID):
     """Read the persisted trial without attaching, compiling or sending."""
     uid = int(os.environ.get('SUDO_UID', str(os.getuid())))
     root = Path(pwd.getpwuid(uid).pw_dir)/'.local/state/ncut-wechat-skills/native-send-trial'
-    work = root/REQUEST_ID
+    work = root/trial_name(request_id)
     if not (work/'result.json').exists():
         raise ValueError('No completed trial report is available yet: ' + str(work))
     result = json.loads((work/'result.json').read_text())
@@ -390,12 +447,18 @@ def inspect_trial():
     return {'result_path': str(work/'result.json'), 'read_only': True, **result}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=('check', 'filehelper-once', 'status'))
-    args = parser.parse_args()
+    parser.add_argument('operation', choices=('check', 'filehelper-once', 'send-text', 'status'))
+    parser.add_argument('--text')
+    parser.add_argument('--recipient', default='filehelper', help='Exact chat ID; writes require applicable owner authorization')
+    parser.add_argument('--request-id', default=REQUEST_ID)
+    args = parser.parse_args(argv)
+    if args.operation == 'send-text' and (args.text is None or args.request_id == REQUEST_ID):
+        parser.error('send-text requires --text and a new explicit --request-id')
     os.umask(0o077)
-    result = inspect_trial() if args.operation == 'status' else trial(args.operation == 'filehelper-once')
+    result = (inspect_trial(args.request_id) if args.operation == 'status' else
+              trial(args.operation != 'check', args.text, args.request_id, args.recipient))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if args.operation == 'status':
         return 0

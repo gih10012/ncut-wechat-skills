@@ -1,6 +1,34 @@
-# OneBot轻量尝试（2026-09-18）
+# OneBot接入与已验证范围
 
 本人明确要求普通微信好友/群聊收发优先；ClawBot只能作为补充，不是普通聊天验收的前置条件。
+
+2026-09-21当前结论：Linux原生后端已将一次固定文字发送到文件传输助手，本人确认手机收到；这是后端首次个人身份投递证据，尚未经过OneBot。参数化原生发送、限时OneBot适配、其他收件人及媒体均待分别实测，不把此结果或下文ClawBot桥验收当成完整原生OneBot收发成功。`python3 "$WX" native send-status`可读取已有固定试验结果；正文和具体任务号仅私存。Linux历史未找到该条，当前本地回写未接入，不能据此重发。实现、状态命令与验收见[原生发送流程](native-send-port.md)。
+
+个人微信身份向文件传输助手或ClawBot发送已有长期授权，不逐次询问；其他对象需本人明确口头授权或适用的事先授权，具体发送请求即为该范围授权。ClawBot机器人身份读写的长期授权保持。当前常驻服务仍暂缓，不因接入OneBot启动后台服务。下文为各轮历史证据，旧的未接通结论仅对应当时路线与范围。
+
+## 限时原生文字入口
+
+`scripts/native_onebot.py`已随skill安装，提供OneBot12 HTTP动作子集：`get_supported_actions`、`get_version`、`send_message`。当前只启用个人身份向filehelper发文字；没有事件接口和媒体动作，不是完整OneBot实现。标准HTTP及动作格式依据[HTTP通信](https://12.onebot.dev/connect/communication/http/)、[动作请求](https://12.onebot.dev/connect/data-protocol/action-request/)和[发送消息](https://12.onebot.dev/interface/message/actions/)。模拟后端的真实回环HTTP测试已通过，本人微信的OneBot调用尚待实测。
+
+显式启动一次临时入口：
+
+```bash
+sudo python3 ~/.codex/skills/wechat-personal/scripts/native_onebot.py serve --duration 600 --max-sends 3
+```
+
+入口只监听127.0.0.1随机端口，600秒到期退出，最多接受3次新发送请求；Ctrl+C可结束。仅使用Python标准库与现有原生后端，不注册开机服务。端口及随机Bearer保存在本人`~/.local/state/ncut-wechat-skills/native-onebot-session.json`（0600），不要输出token。启动需要本机sudo权限，已有发送授权不需再次确认。
+
+普通桌面账号通过stdin提交动作，`call`读取私有入口、禁用代理和重定向：
+
+```bash
+python3 ~/.codex/skills/wechat-personal/scripts/native_onebot.py call <<'JSON'
+{"action":"send_message","params":{"detail_type":"private","user_id":"filehelper","message":[{"type":"text","data":{"text":"OneBot 原生文字测试"}}],"wechat.request_id":"replace-with-unique-ascii-id"},"echo":"optional-correlation"}
+JSON
+```
+
+将`wechat.request_id`替换为4–80字符ASCII请求ID；`echo`只关联响应，不能代替防重ID。同ID同内容返回原结果；不同内容拒绝。成功响应的`message_id=wechat-local:<request-id>`是本地操作ID，`wechat.id_kind=local_request`明确其语义，微信客户端任务号另列`wechat.native_task_id`。成功仅表示原生往返验证、一次零错误回调及清理通过；`wechat.recipient_delivery_verified`单独记录接收端证据。
+
+超时或回调不确定时禁止本会话继续发送，保留后端PID、request-id和结果路径，不自动重试、不强杀未完成GDB。通过`native send-status --request-id`和实际进程状态检查同一任务；状态文件写有`pending_backend`时下次启动拒绝覆盖，先核对该任务实际完成及客户端恢复情况，再处理旧会话记录。客户端仍会保留小型回调模块直到退出，不增加常驻接收服务。
 
 ## 普通微信候选核对
 
@@ -101,4 +129,4 @@
 
 运行时还发现该包未按HOST=127.0.0.1限制监听，API端口和固定MCP端口8098监听所有地址；停止试验后所有对应端口已关闭。再次试验必须使用网络隔离及明确的回环端口映射，不能只信任HOST配置。未部署常驻。
 
-并行源码审查进一步定位了当前Linux的MMStartTask候选和Task拷贝函数。移植准备、实际观测工具及必须本人完成的系统权限步骤已沉淀为[原生发送移植子流程](native-send-port.md)。只有合成进程自测通过，个人微信真实发送依然未完成。
+并行源码审查进一步定位了当前Linux的MMStartTask候选和Task拷贝函数。移植准备、实际观测工具及必须本人完成的系统权限步骤已沉淀为[原生发送移植子流程](native-send-port.md)。当时仅合成进程自测通过；此后真实提交与2026-09-21手机收件确认已补齐filehelper固定文字验收，OneBot和其他发送范围仍未通过。

@@ -108,8 +108,13 @@ if __name__ == '__main__':
     try:
         if len(sys.argv)>1 and sys.argv[1]=='article': article(sys.argv[2:])
         elif len(sys.argv)>1 and sys.argv[1]=='native':
-            from native_messages import main
-            access.emit(main(sys.argv[2:]))
+            if len(sys.argv) > 2 and sys.argv[2] in ('send', 'send-status'):
+                from native_send_candidate import main
+                operation = 'send-text' if sys.argv[2] == 'send' else 'status'
+                raise SystemExit(main([operation, *sys.argv[3:]]))
+            else:
+                from native_messages import main
+                access.emit(main(sys.argv[2:]))
         elif len(sys.argv)>1 and sys.argv[1]=='notifications':
             from notification_inbox import main
             access.emit(main(sys.argv[2:], access))
