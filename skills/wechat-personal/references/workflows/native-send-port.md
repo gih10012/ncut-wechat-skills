@@ -1,10 +1,10 @@
 # Linux 原生发送：已验收范围与开发接续
 
-2026-09-21本人已确认手机文件传输助手收到Linux主动发送的固定文字。私有结果的`recipient_delivery_verified=true`与一次零错误完成回调、对象释放及客户端继续运行相互区分；收件确认覆盖此次锁定版本的原生个人身份文字投递。Linux本地历史未找到该条，当前未接入本地消息回写，不能据此判投递失败或重发。
+2026-09-21已完成锁定Linux版本的个人身份filehelper文字验收：此前固定试验及后续OneBot HTTP调用均获本人手机收件确认，后者只收到一条，中文、换行与emoji正常。同ID重放没有再次提交。收件证据与零错误完成回调、对象释放及客户端继续运行分别记录；完整证据见[验收记录](../verification.md)。本地消息回写未接入，不能据Linux历史缺失判投递失败或重发。
 
 新会话先读已有结果：`python3 "$WX" native send-status`，默认读取固定试验；其他请求用`native send-status --request-id '原请求ID'`。`$WX`是本skill的`scripts/wechat.py`绝对路径。状态读取无需sudo，不附加微信或发送消息。状态和原始证据保存在`~/.local/state/ncut-wechat-skills/native-send-trial/`，不用旧会话或仓库外试验脚本接续。
 
-新增`sudo python3 "$WX" native send --text '消息文字' --request-id '本次唯一ID'`默认目标为filehelper，通用参数路径尚未真实发送验收；底层限制和防重见下文。OneBot原生身份适配、其他收件人、媒体及本地回写也尚未验收。完整调用和授权见[发送契约](../capabilities/wechat/send-message.md)。个人身份向文件传输助手与ClawBot发送已有长期授权；其他收件人需要本人明确口头授权或适用的事先授权，指定对象及内容的发送请求即为其范围授权。
+已验证的OneBot调用见[filehelper文字契约](../capabilities/wechat/send-filehelper-text.md)。`sudo python3 "$WX" native send --text '消息文字' --request-id '本次唯一ID'`默认目标为filehelper，与OneBot共用已实测的参数化后端，但独立CLI写入未在本轮验收；底层限制和防重见下文。其他收件人、媒体、OneBot事件及本地回写尚未验收，完整范围与授权见[通用发送契约](../capabilities/wechat/send-message.md)。个人身份向文件传输助手与ClawBot发送已有长期授权；其他收件人需要本人明确口头授权或适用的事先授权，指定对象及内容的发送请求即为其范围授权。
 
 下文观测细节仅在继续开发或排查匹配版本后端时使用；普通历史查询直接用native读取，不重新跑探针。
 
@@ -48,7 +48,7 @@ sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_probe.py obse
 
 ## 主动发送实现与首次收件验收
 
-`scripts/native_send_candidate.py` 与 `native_send_helper.c` 已随skill安装，只接受同一SHA的Linux客户端。固定filehelper文字已完成手机收件验收；新增`native send`参数入口默认发filehelper文字，尚未实际运行验收，OneBot适配也未实测。已有记录先读status，不能为重测删除防重记录。以下是此前使用过的固定试验入口，现有账号不要重跑；它保留原防重记录：
+`scripts/native_send_candidate.py` 与 `native_send_helper.c` 已随skill安装，只接受同一SHA的Linux客户端。固定试验和后续OneBot参数化filehelper文字均已完成手机收件验收；独立`native send` CLI写入未在本轮执行。已有记录先读status，不能为重测删除防重记录。以下是此前使用过的固定试验入口，现有账号不要重跑；它保留原防重记录：
 
 ```bash
 sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py filehelper-once
@@ -58,9 +58,9 @@ sudo python3 /ABSOLUTE/PATH/TO/wechat-personal/scripts/native_send_candidate.py 
 
 脚本检查唯一进程、完整二进制SHA、网络服务对象vtable与入口、主线程处于poll。poll判断同时要求x86-64系统调用号属于poll/ppoll/epoll等待、PC前两字节为syscall指令、所在模块为libc，兼容新版glibc的无名取消入口。GDB只负责加载约18KiB共享模块及启动线程，确认脱离后由私有标志文件允许线程继续。短线程完成后退出；模块为异步回调安全保留到微信进程退出，不安装服务、不监听端口。它显式适配当前libc++回调ABI，不使用系统libstdc++冒充。回调返回false接管对象释放，并与提交函数返回同步，避免快速回调先释放业务对象；使用客户端原有析构函数。
 
-状态在`~/.local/state/ncut-wechat-skills/native-send-trial/`，权限0700/0600。固定试验ID及每次显式request-id均禁止重复提交；通用请求同ID、正文、目标和模式一致时只读回原结果，冲突则拒绝。旧固定试验只有结果明确为调用前的`main_thread_not_idle_in_poll`拒绝、没有worker/arm且调试器已结束，才自动完整归档旧记录后允许再试。其他已有记录均拒绝，结果不确定时先读状态和接收端，不能删除记录后盲重发。`submission_entered`仅代表进入提交，`task_id`仅是客户端任务号，完成回调零错误也仍需接收端看到固定验收文字。`worker_pending`、`callback_pending`不能当成功；`debugger_still_running`会报告活跃PID，需按其实际状态接续，不能重启或强杀未完成的原生调用。
+状态在`~/.local/state/ncut-wechat-skills/native-send-trial/`，权限0700/0600。固定试验ID及每次显式request-id均禁止重复提交；通用请求同ID、正文、目标和模式一致时只读回原结果，冲突则拒绝。旧固定试验只有结果明确为调用前的`main_thread_not_idle_in_poll`拒绝、没有worker/arm且调试器已结束，才自动完整归档旧记录后允许再试。其他已有记录均拒绝，结果不确定时先读状态和接收端，不能删除记录后盲重发。`submission_entered`仅代表进入提交，`task_id`仅是客户端任务号，完成回调零错误也仍需独立接收端证据。`worker_pending`、`callback_pending`不能当成功；`debugger_still_running`会报告活跃PID，需按其实际状态接续，不能重启或强杀未完成的原生调用。
 
-2026-09-20已通过真实GDB的合成进程加载→脱离→启动→异步回调测试，及跨线程信号打断加载的恢复测试；ASan/UBSan覆盖成功、仅检查、解析失败、未转移回调、错误回调和回调先于提交返回的释放路径。这些测试仅覆盖实现和所有权路径；后续本人微信真实调用与手机收件确认见下文，不能由合成测试推断其他收件人、OneBot或媒体已验收。
+2026-09-20已通过真实GDB的合成进程加载→脱离→启动→异步回调测试，及跨线程信号打断加载的恢复测试；ASan/UBSan覆盖成功、仅检查、解析失败、未转移回调、错误回调和回调先于提交返回的释放路径。这些测试仅覆盖实现和所有权路径；真实微信调用、手机收件与OneBot验收均另有运行证据，不能由合成测试推断其他收件人或媒体已验收。
 
 同日本人发现合成`fixture`在跨线程信号测试后崩溃。已复现：新加载模块缺少GDB已加载的展开元数据时，栈遍历可能看不到未完成的dummy frame，旧判据会提前清理/脱离。修复为同时跟踪每次原生调用前的PC/SP，在两者恢复前不执行后续调用或脱离；检查失败保留pending。回归新增原程序返回路径的标志及脱离后存活检查，避免只看瞬间进程状态。此次崩溃不是微信进程，未执行真实发送；CI另隔离宿主Python库路径以保证系统GDB使用配套Python。
 

@@ -2,13 +2,13 @@
 
 本人明确要求普通微信好友/群聊收发优先；ClawBot只能作为补充，不是普通聊天验收的前置条件。
 
-2026-09-21当前结论：Linux原生后端已将一次固定文字发送到文件传输助手，本人确认手机收到；这是后端首次个人身份投递证据，尚未经过OneBot。参数化原生发送、限时OneBot适配、其他收件人及媒体均待分别实测，不把此结果或下文ClawBot桥验收当成完整原生OneBot收发成功。`python3 "$WX" native send-status`可读取已有固定试验结果；正文和具体任务号仅私存。Linux历史未找到该条，当前本地回写未接入，不能据此重发。实现、状态命令与验收见[原生发送流程](native-send-port.md)。
+2026-09-21当前结论：个人身份经OneBot12 HTTP向文件传输助手发送文字已端到端验证，本人确认只收到一条且中文、换行与emoji正常；同ID重放未重发，内容冲突被拒绝。共享参数化后端已真实运行，独立CLI写入未在本轮验收。其他收件人、媒体、OneBot事件及本地回写未验收，不能扩大为完整原生OneBot收发成功。复用见[filehelper文字契约](../capabilities/wechat/send-filehelper-text.md)；`python3 "$WX" native send-status --request-id '原请求ID'`只读对应结果，省略ID读取早期固定试验。正文、请求ID和具体任务号仅私存，不据Linux历史缺失重发。
 
-个人微信身份向文件传输助手或ClawBot发送已有长期授权，不逐次询问；其他对象需本人明确口头授权或适用的事先授权，具体发送请求即为该范围授权。ClawBot机器人身份读写的长期授权保持。当前常驻服务仍暂缓，不因接入OneBot启动后台服务。下文为各轮历史证据，旧的未接通结论仅对应当时路线与范围。
+个人微信身份向文件传输助手或ClawBot发送已有长期授权，不逐次询问；其他对象需本人明确口头授权或适用的事先授权，具体发送请求即为该范围授权。ClawBot机器人身份读写的长期授权保持。当前限时入口不注册开机服务。本人新增要求把确定性微信读写拆为独立开源CLI，并在安装时配置特权自启动服务；该实现及实际安装尚待完成，独立消息接收服务仍暂缓。下文为各轮历史证据，旧的未接通结论仅对应当时路线与范围。
 
 ## 限时原生文字入口
 
-`scripts/native_onebot.py`已随skill安装，提供OneBot12 HTTP动作子集：`get_supported_actions`、`get_version`、`send_message`。当前只启用个人身份向filehelper发文字；没有事件接口和媒体动作，不是完整OneBot实现。标准HTTP及动作格式依据[HTTP通信](https://12.onebot.dev/connect/communication/http/)、[动作请求](https://12.onebot.dev/connect/data-protocol/action-request/)和[发送消息](https://12.onebot.dev/interface/message/actions/)。模拟后端的真实回环HTTP测试已通过，本人微信的OneBot调用尚待实测。
+`scripts/native_onebot.py`已随skill安装，提供OneBot12 HTTP动作子集：`get_supported_actions`、`get_version`、`send_message`。默认只启用个人身份向filehelper发文字；`serve --allow-recipient EXACT_ID`可重复添加已获授权的精确原生私聊ID，其他对象路径尚待实测，不接受显示名或群ID。没有事件接口和媒体动作，不是完整OneBot实现。标准HTTP及动作格式依据[HTTP通信](https://12.onebot.dev/connect/communication/http/)、[动作请求](https://12.onebot.dev/connect/data-protocol/action-request/)和[发送消息](https://12.onebot.dev/interface/message/actions/)。本人微信的真实HTTP发送、同ID防重、内容冲突拒绝及手机收件已通过，证据见[验收记录](../verification.md)。
 
 显式启动一次临时入口：
 
@@ -129,4 +129,4 @@ JSON
 
 运行时还发现该包未按HOST=127.0.0.1限制监听，API端口和固定MCP端口8098监听所有地址；停止试验后所有对应端口已关闭。再次试验必须使用网络隔离及明确的回环端口映射，不能只信任HOST配置。未部署常驻。
 
-并行源码审查进一步定位了当前Linux的MMStartTask候选和Task拷贝函数。移植准备、实际观测工具及必须本人完成的系统权限步骤已沉淀为[原生发送移植子流程](native-send-port.md)。当时仅合成进程自测通过；此后真实提交与2026-09-21手机收件确认已补齐filehelper固定文字验收，OneBot和其他发送范围仍未通过。
+并行源码审查进一步定位了当前Linux的MMStartTask候选和Task拷贝函数。移植准备、实际观测工具及必须本人完成的系统权限步骤已沉淀为[原生发送移植子流程](native-send-port.md)。当时仅合成进程自测通过；此后真实提交与2026-09-21手机收件确认已补齐filehelper固定文字及OneBot文字验收，当前范围以本页开头为准。

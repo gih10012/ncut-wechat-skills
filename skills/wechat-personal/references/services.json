@@ -50,11 +50,12 @@
       "entry": null,
       "transport": "local_sqlcipher_readonly_and_pinned_linux_native_send",
       "status": "partially_verified",
-      "verified_scope": "Linux local conversations and synced recent messages; one pinned-build native personal-identity filehelper text trial confirmed received on the phone on 2026-09-21; local outgoing history writeback not integrated; parameterized send, native OneBot, other recipients, native media and remote login remain unverified",
+      "verified_scope": "Linux local conversations and synced recent messages; pinned-build personal-identity filehelper text through OneBot12 HTTP and the shared parameterized backend verified on 2026-09-21; owner confirmed one delivery with Chinese, newlines and emoji intact; same-ID replay did not resubmit and conflicting content was rejected; standalone native-send CLI not independently exercised in this round; other recipients, native media, OneBot events, local outgoing history writeback and remote login remain unverified",
       "capabilities": {
         "conversations": "runtime_verified",
         "read-messages": "runtime_verified",
-        "send-message": "partially_verified"
+        "send-message": "partially_verified",
+        "send-filehelper-text": "runtime_verified"
       }
     },
     {

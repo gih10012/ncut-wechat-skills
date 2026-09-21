@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Explicit, temporary OneBot 12 HTTP text adapter for the owner's native WeChat.
 
-Only filehelper private text is enabled. No events, media, daemon or installation.
+Private text to filehelper and explicitly configured native IDs only.
+No events, media, daemon or installation.
 The endpoint token is read from private state by `call`; never put it in arguments.
 """
 import argparse
@@ -29,6 +30,14 @@ import native_send_candidate as backend
 
 SUPPORTED = ['get_supported_actions', 'get_version', 'send_message']
 MAX_BODY = 16384
+
+
+def private_recipient(value):
+    if (not isinstance(value, str)
+            or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.@-]{0,127}', value)
+            or value.lower().endswith('@chatroom')):
+        raise ValueError('Recipient must be an exact private native ID: 1..128 ASCII letters/digits/_.@-; no chatrooms')
+    return value
 
 
 def response(code=0, message='', data=None):
@@ -138,9 +147,14 @@ def native_response(result, request_id):
 
 
 class Adapter:
-    def __init__(self, sender, max_sends=3, action_timeout=90):
+    def __init__(self, sender, max_sends=3, action_timeout=90, allowed_recipients=None):
         if not 1 <= max_sends <= 10 or not 1 <= action_timeout <= 180:
             raise ValueError('max-sends must be 1..10; action-timeout must be 1..180 seconds')
+        if isinstance(allowed_recipients, (str, bytes)):
+            raise ValueError('allowed_recipients must be a collection of exact native IDs')
+        self.allowed_recipients = frozenset(
+            {'filehelper'} | {private_recipient(value) for value in
+                              (() if allowed_recipients is None else allowed_recipients)})
         self.sender, self.max_sends, self.action_timeout = sender, max_sends, action_timeout
         self.sends, self.cache, self.blocked = 0, {}, False
 
@@ -162,15 +176,18 @@ class Adapter:
             return response(data=list(SUPPORTED))
         if action == 'get_version':
             return response(data={'impl': 'ncut-wechat-native-text', 'version': '0.1.0',
-                                  'onebot_version': '12', 'wechat.scope': 'temporary filehelper text only',
+                                  'onebot_version': '12', 'wechat.scope': 'temporary private text to configured native IDs only',
+                                  'wechat.allowed_recipients': sorted(self.allowed_recipients),
                                   'wechat.events_enabled': False})
         if 'self' in request:
             return response(10102, 'Explicit self identities are not configured')
         request_id = params.get('wechat.request_id')
         if not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{3,79}', request_id):
             return response(10003, 'wechat.request_id is required: 4..80 ASCII letters/digits/._-; echo is not an idempotency key')
-        if params.get('detail_type') != 'private' or params.get('user_id') != 'filehelper':
-            return response(10003, 'Only private user_id=filehelper is enabled')
+        recipient = params.get('user_id')
+        if (params.get('detail_type') != 'private' or not isinstance(recipient, str)
+                or recipient not in self.allowed_recipients):
+            return response(10003, 'Only private user_id values explicitly enabled for this session are accepted')
         if set(params) - {'detail_type', 'user_id', 'message', 'wechat.request_id'}:
             return response(10004, 'Unsupported send parameter')
         message = params.get('message')
@@ -199,22 +216,22 @@ class Adapter:
         digest = hashlib.sha256(encoded).hexdigest()
         if request_id in self.cache:
             previous = self.cache[request_id]
-            if previous['digest'] != digest:
-                return response(10003, 'REQUEST_ID_CONFLICT: content differs for this request ID')
+            if previous['digest'] != digest or previous['recipient'] != recipient:
+                return response(10003, 'REQUEST_ID_CONFLICT: content or recipient differs for this request ID')
             return previous['response']
         if self.blocked or self.sends >= self.max_sends:
             return response(36001, 'Session send limit reached or an earlier send requires inspection',
                             {'wechat.request_id': request_id, 'wechat.automatic_retry_allowed': False})
         self.sends += 1
         try:
-            result = self.sender(message, request_id, 'filehelper', self.action_timeout)
+            result = self.sender(message, request_id, recipient, self.action_timeout)
             answer = native_response(result, request_id)
         except Exception:
             # Exception text may include private paths/content; the backend keeps diagnostics.
             answer = response(20002, 'Native backend failed; inspect the original request before retry',
                               {'wechat.request_id': request_id, 'wechat.automatic_retry_allowed': False})
         self.blocked = answer['status'] != 'ok'
-        self.cache[request_id] = {'digest': digest, 'response': answer}
+        self.cache[request_id] = {'digest': digest, 'recipient': recipient, 'response': answer}
         return answer
 
 
@@ -330,7 +347,8 @@ class SessionServer(HTTPServer):
                  'expires_at': self.expires_at, 'max_sends': self.adapter.max_sends,
                  'sends': self.adapter.sends, 'blocked': self.adapter.blocked,
                  'pending_backend': pending, 'events_enabled': False,
-                 'scope': 'native personal identity; private filehelper text only'}
+                 'allowed_recipients': sorted(self.adapter.allowed_recipients),
+                 'scope': 'native personal identity; private text to configured native IDs only'}
         if status == 'running':
             value['access_token'] = self.token
         else:
@@ -395,6 +413,10 @@ def main(argv=None):
     serve.add_argument('--duration', type=int, default=600)
     serve.add_argument('--max-sends', type=int, default=3)
     serve.add_argument('--action-timeout', type=int, default=90)
+    serve.add_argument('--allow-recipient', action='append', type=private_recipient,
+                       default=[], metavar='EXACT_ID',
+                       help='enable an exact private native ID (repeatable; filehelper always enabled); '
+                            'requires current or prior owner authorization for that recipient')
     request = commands.add_parser('call', help='read one action JSON from stdin; ordinary desktop user')
     request.add_argument('--timeout', type=float, default=120)
     args = parser.parse_args(argv)
@@ -407,7 +429,7 @@ def main(argv=None):
         raise ValueError('serve requires sudo from the desktop account; no client was touched')
     path = default_session()
     sender = BackendProcess(path.parent, (uid, gid))
-    adapter = Adapter(sender, args.max_sends, args.action_timeout)
+    adapter = Adapter(sender, args.max_sends, args.action_timeout, args.allow_recipient)
     server = SessionServer(adapter, path, args.duration, (uid, gid))
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_args: setattr(server, 'stop_requested', True))

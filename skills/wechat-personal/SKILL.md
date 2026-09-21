@@ -1,6 +1,6 @@
 ---
 name: wechat-personal
-description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、原生身份向文件传输助手发送固定文字、ClawBot 文字/文件/图片收发及语音下载、公众号和部分学校 Web；通用原生发送、OneBot 原生发送与企微消息待验收。
+description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、个人身份经 OneBot 向文件传输助手发送文字、ClawBot 文字/文件/图片收发及语音下载、公众号和部分学校 Web；其他原生收件人、媒体、OneBot 事件与企微消息待验收。
 ---
 
 # 微信 / 企微信息入口
@@ -15,7 +15,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 学校信息：直接使用同套 [ncut-web-api](../ncut-web-api/SKILL.md) 的课表、场地余量或对应接口；不先启动微信/企微。
 - 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。`runtime_verified` 命中直接按对应命令/请求执行，正常结果即结束；未验证条目按 `next` 做局部发现，不把检索命中当作可用。细节仅按能力 ID 加 `--details` 或读对应文件。
 - 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
-- 个人微信身份发送：2026-09-21本人已确认手机文件传输助手收到固定文字，首次Linux原生主动发送已验收。范围仅为锁定版本的一次文字试验；通用参数发送、OneBot、其他对象和媒体仍待分别验收。`python3 "$WX" native send-status`只读该固定试验结果；指定其他请求用`native send-status --request-id '原请求ID'`，不会重发。新增`native send --text '消息文字' --request-id '本次唯一ID'`默认面向filehelper，真实参数路径尚未验收，使用与权限见[发送契约](references/capabilities/wechat/send-message.md)。此次消息未在Linux历史找到，本地回写未接入；不能据此否定手机投递或重发。企微消息仍未接通，确需时按[消息接入](references/workflows/messages.md)检查局部新证据。已有读取只覆盖本机已同步历史，媒体仅标类型。
+- 个人微信身份发送：经OneBot向文件传输助手发送文字已端到端验证，本人确认只收到一条且中文、换行和emoji正常，同ID重放没有重发。直接按[filehelper文字契约](references/capabilities/wechat/send-filehelper-text.md)调用；底层参数化后端已实测，独立`native send` CLI写入未在本轮验收。状态读取用`python3 "$WX" native send-status --request-id '原请求ID'`，不会重发；省略ID仅读取早期固定试验。其他对象、媒体、OneBot事件及本地回写未验收，见[通用发送契约](references/capabilities/wechat/send-message.md)。不据Linux历史缺失否定手机投递或重发。企微消息仍未接通，确需时按[消息接入](references/workflows/messages.md)检查局部新证据。已有读取只覆盖本机已同步历史，媒体仅标类型。
 - 企微通知补充已暂缓：本人手机为原生鸿蒙，先前Android假设已更正；不再提示安装SmsForwarder或启动手机验收。现有`notifications list --account me --limit 20`与MCP `wecom_notifications`仅保留本机归档读取，真实手机投递未验证；旧方案见[Android通知](references/workflows/android-notifications.md)。OpenHarmony手机接入留待后续，当前不扩展手机工程。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定及真实文字、文件、图片、语音入站。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
 - ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。本地读回仅在用户要求验收或排查时可选使用；电脑微信离线不影响ClawBot经iLink独立收发，不因本地未读回阻断或判失败。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
@@ -33,7 +33,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 ## 发送授权
 
-以本人个人微信身份写入（含 OneBot）时，向文件传输助手或ClawBot发送已有本人长期授权，无需逐次询问；向其他收件人发送需要本人明确口头授权或适用的事先授权，用户指定对象和内容的发送请求即为该范围授权。核对目标、内容/类型和范围，已有授权不重复询问。授权不等于技术能力已验证：当前原生收件验收仅覆盖文件传输助手固定文字。ClawBot机器人身份通道的读写也已有长期授权，当前仅向绑定本人发送；分别记录身份及验收范围。
+以本人个人微信身份写入（含 OneBot）时，向文件传输助手或ClawBot发送已有本人长期授权，无需逐次询问；向其他收件人发送需要本人明确口头授权或适用的事先授权，用户指定对象和内容的发送请求即为该范围授权。核对目标、内容/类型和范围，已有授权不重复询问。授权不等于技术能力已验证：当前原生收件验收覆盖文件传输助手文字，包括OneBot调用。ClawBot机器人身份通道的读写也已有长期授权，当前仅向绑定本人发送；分别记录身份及验收范围。
 
 当前任务先完成微信，再继续企微。WorkPro 仅在实测可用、稳定且免费或价格低时考虑；未完成这些验证前不宣称可用。
 
@@ -51,4 +51,4 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 按 [共享契约格式](../ncut-web-api/references/api-contract.md) 写业务域、method/path、query/body 参数来源、会话来源、返回字段和成功/失败判断。多步子流程写请求 A → 从响应取值 → 请求 B；不写“打开工具箱点第几项”，不另建大量顶层 skill。动态 code/ticket 不写成永久入口，不保存 token 或消息正文。
 
-`runtime_verified` 只标实际成功的范围；源码线索、接入流程、本地草稿和客户端截图各自标明。正常命中不重验全平台、不写知识。发送/提交遵守上面的身份与授权规则；原生文件传输助手固定文字已有手机收件确认，不能据此把通用发送或其他格式升为已验证。详见 [验收记录](references/verification.md)。
+`runtime_verified` 只标实际成功的范围；源码线索、接入流程、本地草稿和客户端截图各自标明。正常命中不重验全平台、不写知识。发送/提交遵守上面的身份与授权规则；原生文件传输助手文字及OneBot调用已有手机收件确认，不能据此把通用发送、其他格式或完整OneBot协议升为已验证。详见 [验收记录](references/verification.md)。

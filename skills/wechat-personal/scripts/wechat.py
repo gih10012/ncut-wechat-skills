@@ -118,6 +118,9 @@ if __name__ == '__main__':
         elif len(sys.argv)>1 and sys.argv[1]=='notifications':
             from notification_inbox import main
             access.emit(main(sys.argv[2:], access))
+        elif len(sys.argv)>1 and sys.argv[1]=='onebot':
+            from native_onebot import main
+            raise SystemExit(main(sys.argv[2:]))
         elif len(sys.argv)>1 and sys.argv[1]=='bot':
             bot_python = Path.home()/'.local/share/ncut-wechat-skills/bot-venv/bin/python'
             if bot_python.is_file() and Path(sys.prefix) != bot_python.parent.parent:

@@ -26,9 +26,9 @@ def completed():
                        'error_type': 0, 'error_code': 0, 'failure': 0}}
 
 
-def message(request_id='test-request-1', text='你好'):
+def message(request_id='test-request-1', text='你好', recipient='filehelper'):
     return {'action': 'send_message', 'params': {'detail_type': 'private',
-            'user_id': 'filehelper', 'message': text, 'wechat.request_id': request_id}}
+            'user_id': recipient, 'message': text, 'wechat.request_id': request_id}}
 
 
 class Sender:
@@ -44,6 +44,56 @@ class Sender:
 
 
 class AdapterTests(unittest.TestCase):
+    def test_configured_target_is_exact_and_version_reports_current_scope(self):
+        sender = Sender()
+        target = 'gh_onebot_fixture@im.bot'
+        configured = [target, target]
+        adapter = onebot.Adapter(sender, allowed_recipients=configured)
+        configured.append('wxid_added_after_start')
+        version = adapter.action({'action': 'get_version', 'params': {}})['data']
+        self.assertEqual(version['wechat.allowed_recipients'], ['filehelper', target])
+        self.assertFalse(version['wechat.events_enabled'])
+        self.assertEqual(adapter.action(message(recipient=target))['status'], 'ok')
+        self.assertEqual(sender.calls, [('你好', 'test-request-1', target, 90)])
+        self.assertEqual(adapter.action(message('filehelper-request'))['status'], 'ok')
+        self.assertEqual(sender.calls[-1][2], 'filehelper')
+        for unknown in ('wxid_added_after_start', target.upper(), 'ClawBot', [], None):
+            with self.subTest(target=unknown):
+                self.assertEqual(adapter.action(message('not-enabled-request', recipient=unknown))['retcode'], 10003)
+        self.assertEqual(len(sender.calls), 2)
+
+    def test_replay_requires_both_same_content_and_same_target(self):
+        sender = Sender()
+        target = 'wxid_onebot_fixture'
+        adapter = onebot.Adapter(sender, allowed_recipients=[target])
+        original = message(recipient=target)
+        first = adapter.action(original)
+        for request in (message(), message(text='changed', recipient=target),
+                        message(text='changed')):
+            with self.subTest(request=request):
+                result = adapter.action(request)
+                self.assertEqual(result['retcode'], 10003)
+                self.assertIn('REQUEST_ID_CONFLICT', result['message'])
+        segmented = message(text=[{'type': 'text', 'data': {'text': '你'}},
+                                  {'type': 'text', 'data': {'text': '好'}}], recipient=target)
+        self.assertEqual(adapter.action(segmented), first)
+        self.assertEqual(adapter.action(original), first)
+        self.assertEqual(len(sender.calls), 1)
+
+    def test_allowlist_rejects_display_names_groups_and_malformed_native_ids(self):
+        for target in ('微信ClawBot', 'display name', '123@chatroom', '123@CHATROOM',
+                       '', 'x' * 129, 'wxid_name\n', 'wxid_name\0', '.name', '*', None):
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                onebot.Adapter(Sender(), allowed_recipients=[target])
+        with self.assertRaises(ValueError):
+            onebot.Adapter(Sender(), allowed_recipients='filehelper')
+        adapter = onebot.Adapter(Sender(), allowed_recipients=['x' * 128])
+        self.assertIn('x' * 128, adapter.allowed_recipients)
+        request = message()
+        request['params']['detail_type'] = 'group'
+        self.assertEqual(adapter.action(request)['retcode'], 10003)
+        self.assertEqual(onebot.Adapter(Sender()).allowed_recipients, {'filehelper'})
+
     def test_segment_join_echo_and_stable_local_id_replay(self):
         sender = Sender()
         adapter = onebot.Adapter(sender)
@@ -143,7 +193,7 @@ class LoopbackTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name)/'state/session.json'
         self.sender = Sender()
-        self.adapter = onebot.Adapter(self.sender)
+        self.adapter = onebot.Adapter(self.sender, allowed_recipients=['wxid_onebot_fixture'])
         self.server = onebot.SessionServer(self.adapter, self.path, duration=10,
                                           owner=(os.getuid(), os.getgid()))
         self.port = self.server.server_port
@@ -185,6 +235,24 @@ class LoopbackTests(unittest.TestCase):
         self.assertEqual((status, result['retcode'], result['echo']), (200, 10002, ''))
         self.assertEqual(len(self.sender.calls), 1)
 
+    def test_http_target_scope_and_target_aware_replay(self):
+        target = 'wxid_onebot_fixture'
+        state = json.loads(self.path.read_text())
+        version = onebot.call({'action': 'get_version', 'params': {}}, self.path, timeout=3)
+        self.assertEqual(state['allowed_recipients'], ['filehelper', target])
+        self.assertEqual(version['data']['wechat.allowed_recipients'], state['allowed_recipients'])
+        request = message(recipient=target)
+        first = onebot.call(request, self.path, timeout=3)
+        self.assertEqual(first['status'], 'ok')
+        self.assertEqual(onebot.call(request, self.path, timeout=3), first)
+        conflict = onebot.call(message(), self.path, timeout=3)
+        self.assertIn('REQUEST_ID_CONFLICT', conflict['message'])
+        unknown = onebot.call(message('unknown-target', recipient='wxid_unknown_fixture'), self.path, timeout=3)
+        self.assertEqual(unknown['retcode'], 10003)
+        self.assertEqual(len(self.sender.calls), 1)
+        self.assertEqual(self.sender.calls[0][:3], ('你好', 'test-request-1', target))
+        self.assertLessEqual(self.sender.calls[0][3], 10)
+
     def test_deadline_closes_socket_and_revokes_session_token(self):
         self.server.deadline = time.monotonic() + .05
         self.thread.join(2)
@@ -192,6 +260,7 @@ class LoopbackTests(unittest.TestCase):
         state = json.loads(self.path.read_text())
         self.assertEqual(state['status'], 'expired')
         self.assertNotIn('access_token', state)
+        self.assertEqual(state['allowed_recipients'], ['filehelper', 'wxid_onebot_fixture'])
         with self.assertRaises(OSError):
             socket.create_connection(('127.0.0.1', self.port), timeout=.2)
         with self.assertRaises(ValueError):
@@ -237,6 +306,27 @@ class LoopbackTests(unittest.TestCase):
         self.assertNotIn('access_token', state)
         with self.assertRaisesRegex(ValueError, 'pending native operation'):
             onebot.SessionServer(onebot.Adapter(Sender()), self.path, owner=(os.getuid(), os.getgid()))
+
+
+class CommandTests(unittest.TestCase):
+    def test_repeatable_recipient_flags_reach_new_session_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'session.json'
+            with patch.object(onebot, 'owner_identity', return_value=(1000, 1000, Path(tmp))), \
+                    patch.object(onebot, 'default_session', return_value=path), \
+                    patch.object(onebot.os, 'geteuid', return_value=0), \
+                    patch.object(onebot.os, 'umask'), \
+                    patch.object(onebot.signal, 'signal'), \
+                    patch.object(onebot, 'SessionServer') as server, \
+                    patch('builtins.print'):
+                self.assertEqual(onebot.main(['serve', '--allow-recipient', 'wxid_onebot_fixture',
+                                             '--allow-recipient', 'gh_onebot_fixture@im.bot']), 0)
+            adapter = server.call_args.args[0]
+            self.assertEqual(adapter.allowed_recipients,
+                             {'filehelper', 'wxid_onebot_fixture', 'gh_onebot_fixture@im.bot'})
+            self.assertEqual(adapter.sender.process, None)
+            server.return_value.run.assert_called_once_with()
+            self.assertFalse(path.exists())
 
 
 if __name__ == '__main__':

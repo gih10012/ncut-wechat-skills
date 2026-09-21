@@ -6,13 +6,13 @@ exclude_keywords: ["企微", "企业微信", "机器人身份"]
 status: "partially_verified"
 transport: "pinned_linux_native_client"
 workflow: references/workflows/native-send-port.md
-note: "2026-09-21本人确认手机收到原生身份向文件传输助手发送的固定文字；本地回写未接入。native send-status只读已有结果；native send参数路径、OneBot、其他收件人和媒体尚未实测，不能因一次验收标为通用可用。"
+note: "2026-09-21个人身份经OneBot向文件传输助手发送文字已获手机单次收件确认，中文、换行与emoji正常，同ID防重通过；共享参数化后端已实测，独立CLI写入未在本轮验收。其他对象、媒体、OneBot事件及本地回写未验收，通用发送保持partially_verified。"
 ---
 # 个人微信身份发送
 
-2026-09-21本人确认手机文件传输助手收到此前Linux主动发送的固定文字。私有结果为`trial_finished`、`recipient_delivery_verified=true`：ppoll预检、网络服务链和原生请求往返检查通过，真实提交后收到一次零错误完成回调，回调对象已释放，客户端运行且已脱离调试器。这是首次原生个人身份文字投递验收；仅覆盖锁定Linux版本和该次filehelper文字。普通好友/群聊、个人身份向ClawBot发送、媒体及OneBot原生发送均需单独验收。
+2026-09-21已验证锁定Linux版本的原生个人身份filehelper文字投递：此前固定试验及后续OneBot HTTP发送均有手机收件确认。OneBot调用共享参数化后端，完成回调一次、析构一次、存活回调零、错误为零，客户端继续运行且调试器已脱离；同ID重放未再次提交，本人确认只收到一条，中文、换行及emoji正常。可复用范围见[filehelper文字契约](send-filehelper-text.md)。普通好友/群聊、个人身份向ClawBot发送、媒体、OneBot事件及完整协议均需单独验收。
 
-此次文字在Linux本地历史中未找到，当前发送适配尚未接入本地消息回写。手机收件确认与本地历史缺项分别记录，不能因此否定投递、重复发送或要求重新验收。
+当前发送适配尚未接入Linux本地消息回写。手机收件确认与本地历史缺项分别记录，不能因历史缺失否定投递、重复发送或要求重新验收。
 
 ## 调用与状态
 
@@ -23,7 +23,7 @@ python3 "$WX" native send-status
 python3 "$WX" native send-status --request-id '原请求ID'
 ```
 
-无request-id时读取已验收的固定试验。新增可传文字的入口如下，当前只面向filehelper；参数路径尚未在本人微信实际发送验收，不能把固定试验成功当作此命令每次成功：
+无request-id时读取已验收的固定试验。可传文字的CLI入口如下，默认面向filehelper；它与OneBot共用已实测的参数化后端，但独立CLI写入未在本轮执行，日常发送优先使用上述已验证契约：
 
 ```bash
 sudo python3 "$WX" native send --text '消息文字' --request-id '本次唯一ID'
@@ -37,6 +37,6 @@ sudo python3 "$WX" native send --text '消息文字' --request-id '本次唯一I
 
 个人微信身份向文件传输助手或ClawBot发送已有本人长期授权，无需逐次询问。其他对象需要本人明确口头授权或适用的事先授权；用户指定收件人和内容的发送请求即为该范围授权。执行前核对对象、内容/类型和范围，已有授权不重复询问。ClawBot机器人身份→绑定本人的长期授权和独立发送契约保持不变，不能用机器人发送代替个人身份验收。
 
-可复用`native conversations`定位及`native messages`读取已同步历史；原生投递与本地回写分别验收。当前[限时OneBot适配](../../workflows/onebot.md#限时原生文字入口)尚未实测，不启动常驻服务。后续格式据真实接口逐项验证，不把文字代替图片、文件、表情包或公众号卡片。
+可复用`native conversations`定位及`native messages`读取已同步历史；原生投递与本地回写分别验收。[限时OneBot适配](../../workflows/onebot.md#限时原生文字入口)的filehelper文字已实测，按需限时启动，不安装常驻服务。后续格式据真实接口逐项验证，不把文字代替图片、文件、表情包或公众号卡片。
 
 此前普通Web扫码被服务端明确拒绝，未取得API会话；PadPro真实启动后外部授权失败，未获得二维码或登录。结果与后端核对见[OneBot流程](../../workflows/onebot.md)，不要求重复扫码或枚举已排查项目。仅用户要求继续接入时，按当前缺项进行有界探索。
