@@ -43,6 +43,8 @@ ClawBot安装、登录与有界读取见 [第三方SDK入口](skills/wechat-pers
 
 本人也允许后续部署一个与主 skill 解耦的轻量后台接收服务，可放在常开服务器或本机；独立说明见 [BACKGROUND-RECEIVER.md](BACKGROUND-RECEIVER.md)。常驻实现与部署暂缓，普通使用与安装 skill 不自动启动服务。
 
+最新追加的独立 Linux CLI 辅助服务已获一次安装、自启动及日常普通命令的授权；它与暂缓的后台接收器分别处理。[开源 CLI](https://github.com/gih10012/wechat-linux-cli)已作为开发预览发布，独立安装包真实读取及临时 Unix 服务检查通过；特权系统服务部署、发送后的本地消息显示修复仍在进行。接续见[独立 CLI](skills/wechat-personal/references/workflows/native-cli.md)。
+
 ## v0 验收交接
 
 - 新增 [成绩查询契约](skills/ncut-web-api/references/capabilities/jwxtbk/personal-grades.md)：现有菜单/表单发现 → 真实只读 POST → 解析学期及课程成绩 → 再次直接调用。发现到真实验证约13分钟；二次调用结果一致，知识文件未改变。

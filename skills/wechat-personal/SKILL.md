@@ -45,6 +45,8 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 本人允许以后增加与主 skill 解耦的轻量常驻接收器，部署在服务器或本机；当前暂缓实现与部署，普通查询不启动或管理它。仅处理部署需求时读[独立服务说明](../../BACKGROUND-RECEIVER.md)。
 
+本人新追加的独立 Linux CLI 辅助服务另行处理：安装时一次配置特权自启动服务，日常普通命令读写。此授权覆盖该辅助服务的旧暂缓约束；后台消息接收器仍暂缓。独立 CLI 开源开发预览已发布并完成安装包读取验证，真实特权部署及本地消息显示修复尚未验收；安装或继续开发时读[独立 CLI 接续](references/workflows/native-cli.md)，普通已验证查询仍走上面的现有入口。
+
 学校登录：`login --platform school --service 教务`（或预约），本人完成后 `login finish`；平台/服务保存在本机。`login --platform wechat` 默认检查现有本地读取，返回的 `NATIVE_READ_READY` 不证明客户端在线或远端登录有效；日常查询直接 native，不预查登录。确需本人扫码时使用显式 `--transport current-desktop`，只在登录任务需要时读 [认证入口](references/workflows/login.md)。企微原生入口仍未配置。
 
 旧客户端和当前窗口工具只作显式人工诊断入口；普通能力查询不召回其操作流程，不自动启用。用户明确要求使用现有 Linux 窗口时才读 [窗口读取](references/workflows/visible-wechat.md)，且只说明当前一屏覆盖范围。
