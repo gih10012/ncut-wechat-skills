@@ -199,20 +199,27 @@ def run_gdb(cfg, work, seconds, on_started=None):
             on_started()
         reason = 'debugger_finished'
         try:
-            deadline = time.monotonic() + seconds
+            # The observation window starts only after GDB has attached and
+            # installed the breakpoints. On a busy host, startup alone can
+            # exceed a short synthetic observation deadline.
+            startup_deadline = time.monotonic() + 30
+            deadline = None
             announced = False
-            while process.poll() is None and time.monotonic() < deadline:
+            while process.poll() is None:
                 try:
                     result = json.loads(Path(cfg['output']).read_text())
                 except (OSError, ValueError):
                     result = {}
                 if result.get('status') == 'observing' and not announced:
+                    deadline = time.monotonic() + seconds
                     if not cfg.get('self_test'):
                         print('本地入库观测已就绪：请现在从这台 Linux 微信向文件传输助手发一条短文字。', flush=True)
                     announced = True
+                now = time.monotonic()
+                if (deadline is not None and now >= deadline) or (deadline is None and now >= startup_deadline):
+                    reason = 'deadline' if deadline is not None else 'startup_deadline'
+                    break
                 time.sleep(.1)
-            if process.poll() is None:
-                reason = 'deadline'
         except KeyboardInterrupt:
             reason = 'operator_interrupt'
         finally:
