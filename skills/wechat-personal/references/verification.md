@@ -6,6 +6,8 @@
 
 授权与后端范围已按本人要求修正：CLI 任意精确会话 ID，skill/agent 判断当前或事先直接/间接发送授权，不内置 filehelper/ClawBot 授权白名单。任意目标修正包已安装，安装清单与 wheel 校验一致，16 个安装包文件逐个匹配且归 root 所有，重启后服务健康及既有请求读取通过。更新命令在重启后的即时检查报错；据独立证据确认部署完成，脚本已加入只读就绪等待，无需再次执行 sudo。同步协程入口仍禁用，账号、正文和消息 ID 仅私存；见[独立 CLI](workflows/native-cli.md)。下文为各轮当时的验收记录，旧的未接通/未切换状态不覆盖本段当前范围。
 
+个人媒体验收缺项：正常 Linux UI 图片两轮只读观察均安全脱离，四个断点各命中一次；第二轮取得目标匹配的真实请求类和公共字段值。旧过滤混同请求字段与数据库消息类型，导致未串起关联事件；已修正并通过合成 GDB 字段区分、SIGPIPE 及脱离检查，未在真实客户端重跑修正过滤、未调用个人媒体发送 API。本人截图与本地图片历史证明正常 UI 图片，不证明 CLI 自动媒体。本轮媒体入口发现到 15 分钟实际工作限时（本人认证等待不计），图片自动发送、文件、表情包和卡片仍未完成；证据私存，见[个人媒体缺项](capabilities/wechat/send-personal-media.md)。
+
 2026-09-21当前发送范围：锁定Linux版本的个人身份filehelper文字已通过真实OneBot12 HTTP调用及手机收件验收；本人确认只收到一条，中文、换行和emoji显示正常，同ID重放未重发。可复用调用见[filehelper文字契约](capabilities/wechat/send-filehelper-text.md)。共享参数化后端已在此次OneBot调用中运行，独立`native send` CLI写入未在本轮验收。其他收件人、媒体、OneBot事件及本地回写未验收，通用send-message仍为`partially_verified`。`native send-status --request-id '原请求ID'`只读对应结果；省略ID读取此前已验收的固定试验。Linux历史缺失不能据此判投递失败或重发。
 
 公众号文章 GET 已实测，输出区分文字层和图片，不把文章读取当作本人收件箱。学校业务会话由配套 ncut-web-api 独立验证。

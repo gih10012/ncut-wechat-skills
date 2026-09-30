@@ -14,7 +14,7 @@ import native_highlevel_probe as probe
 
 @unittest.skipUnless(shutil.which('gdb') and shutil.which('gcc'), 'requires GDB and GCC')
 class HighlevelProbeTests(unittest.TestCase):
-    def exercise(self, mode='normal', signatures=None):
+    def exercise(self, mode='normal', signatures=None, kind='text'):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             fixture = work/'fixture'
@@ -22,7 +22,7 @@ class HighlevelProbeTests(unittest.TestCase):
                             str(Path(__file__).with_name('native_highlevel_fixture.c')),
                             '-o',str(fixture)], check=True, capture_output=True, timeout=20)
             cfg = {'self_test':True,'fixture':str(fixture),'load_bias':0,'fixture_mode':mode,
-                   'output':str(work/'result.json')}
+                   'output':str(work/'result.json'), 'kind':kind}
             if signatures is not None:
                 cfg['fixture_signatures'] = signatures
             result = probe.run_gdb(cfg, work, 1 if mode == 'timeout' else 8)
@@ -72,6 +72,25 @@ class HighlevelProbeTests(unittest.TestCase):
         self.assertEqual(result['errors'],0)
         self.assertEqual(result['wait_stop_reason'],'deadline')
 
+    def test_image_kind_filters_text_and_keeps_body_unread_and_lifecycle_correlated(self):
+        result = self.exercise(kind='image')
+        self.assertEqual(result['status'], 'captured')
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual(result['kind'], 'image')
+        self.assertEqual([e['stage'] for e in result['events']], ['request','insert','assigned','update'])
+        self.assertEqual(result['events'][0]['request_type'], 1)
+        self.assertTrue(all(e['type']==3 for e in result['events'][1:]))
+        self.assertEqual([e['local_id'] for e in result['events'][1:]], [0,42,42])
+        self.assertEqual(result['events'][-1]['server_id'], 99)
+        self.assertTrue(any(e['target_matches'] and e['request_type']==1
+                            and e['expected_vptr_matches'] for e in result['observed_request_shapes']))
+
+    def test_ignored_sigpipe_does_not_end_the_image_observation(self):
+        result = self.exercise(mode='sigpipe', kind='image')
+        self.assertEqual(result['status'], 'captured')
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual([e['stage'] for e in result['events']], ['request','insert','assigned','update'])
+
     def test_hundred_unrelated_hits_stop_and_detach(self):
         result = self.exercise('hit_limit')
         self.assertEqual(result['hits'],100)
@@ -97,6 +116,8 @@ class HighlevelProbeTests(unittest.TestCase):
         for seconds in (0,61):
             with self.subTest(seconds=seconds), self.assertRaises(ValueError):
                 probe.run_gdb({'self_test':True},Path('/nonexistent'),seconds)
+        with self.assertRaisesRegex(ValueError, 'unsupported_observation_kind'):
+            probe.run_gdb({'self_test': True, 'kind': 'file'}, Path('/nonexistent'), 10)
 
 
 if __name__ == '__main__':

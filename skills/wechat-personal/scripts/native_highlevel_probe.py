@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only, bounded observation of one filehelper text's native high-level lifecycle.
+"""Read-only, bounded observation of one filehelper text/image lifecycle.
 
 No inferior calls, payload writes, message body reads, or send operations.
 ABI offsets are statically derived for one pinned ELF, not an active-call ABI.
@@ -20,6 +20,10 @@ POINTS = {
     'update': (0x6965580, '554157415641554154534881ec0802000089cd89d34989f4'),
 }
 REQUEST_VPTR = 0xa899f78
+# The request's +0x7c value and the database message type are different fields.
+# The actual image class/+0x7c were observed in the pinned client's normal UI
+# send; that does not establish an active media-call or upload contract.
+KINDS = {'text': (1, 1, REQUEST_VPTR), 'image': (1, 3, 0xa899fc8)}
 MAX_HITS = 100
 
 
@@ -37,30 +41,37 @@ def trace_in_gdb(gdb):
              'hits': 0, 'errors': 0, 'detached': False, 'breakpoint_type': 'hardware',
              'point_hits': {name: 0 for name in POINTS}, 'self_test': cfg.get('self_test', False),
              'message_send_performed': False, 'process_payload_written': False,
-             'message_body_read': False, 'runtime_abi_verified': False}
+             'message_body_read': False, 'runtime_abi_verified': False,
+             'observed_request_shapes': []}
     points, attached, start = [], False, None
     selected = {'request': None, 'context': None, 'manager': None,
                 'local_id': None, 'inserted': False}
     object_tags = {kind: {} for kind in ('request', 'context', 'manager', 'sender', 'message')}
     try:
+        kind = cfg.get('kind', 'text')
+        request_type, message_type, request_vptr = KINDS[kind]
+        state['kind'] = kind
         for command in ('set pagination off', 'set confirm off', 'set print thread-events off',
                         'set auto-load off', 'set debuginfod enabled off',
-                        'set auto-solib-add off', 'set exec-file-mismatch off'):
+                        'set auto-solib-add off', 'set exec-file-mismatch off',
+                        'handle SIGPIPE nostop noprint pass'):
             gdb.execute(command, to_string=True)
         if cfg.get('self_test'):
             gdb.execute('file ' + json.dumps(cfg['fixture']), to_string=True)
             mode = cfg.get('fixture_mode', 'normal')
-            if mode not in ('normal', 'timeout', 'hit_limit', 'read_error'):
+            if mode not in ('normal', 'timeout', 'hit_limit', 'read_error', 'sigpipe'):
                 raise ValueError('invalid_fixture_mode')
             gdb.execute('set environment NCUT_HIGHLEVEL_FIXTURE_MODE ' + mode, to_string=True)
+            gdb.execute('set environment NCUT_HIGHLEVEL_FIXTURE_KIND ' + kind, to_string=True)
             gdb.execute('starti', to_string=True)
             addresses = {name: int(gdb.parse_and_eval('&highlevel_' + name)) for name in POINTS}
-            expected_vptr = int(gdb.parse_and_eval('&highlevel_request_vtable'))
+            symbol = 'highlevel_image_vtable' if kind == 'image' else 'highlevel_request_vtable'
+            expected_vptr = int(gdb.parse_and_eval('&' + symbol))
         else:
             gdb.execute('file ' + json.dumps(cfg['binary_copy']), to_string=True)
             gdb.execute('attach ' + str(cfg['pid']), to_string=True)
             addresses = {name: cfg['load_bias'] + point[0] for name, point in POINTS.items()}
-            expected_vptr = cfg['load_bias'] + REQUEST_VPTR
+            expected_vptr = cfg['load_bias'] + request_vptr
         attached = True
         inferior = gdb.selected_inferior()
         state['inferior_pid'] = inferior.pid
@@ -94,11 +105,22 @@ def trace_in_gdb(gdb):
             return encoded[0] >> 1 == 10 and encoded[1:11] == b'filehelper'
 
         def request_matches(request):
-            return (request and integer(request) == expected_vptr
-                    and integer(request + 0x7c, 4) == 1 and recipient_matches(request + 0x90))
+            if not request:
+                return False
+            vptr, actual_type = integer(request), integer(request + 0x7c, 4)
+            offset = vptr - cfg.get('load_bias', 0)
+            module_vptr = 0 <= offset < 0xb000000
+            target_matches = recipient_matches(request + 0x90)
+            shape = {'vptr_offset': hex(offset) if module_vptr else None,
+                     'request_type': actual_type, 'target_matches': target_matches,
+                     'expected_vptr_matches': vptr == expected_vptr}
+            if shape not in state['observed_request_shapes'] and len(state['observed_request_shapes']) < 8:
+                state['observed_request_shapes'].append(shape)
+                save(cfg['output'], state)
+            return vptr == expected_vptr and actual_type == request_type and target_matches
 
         def message_matches(message):
-            return message and integer(message + 0xc, 4) == 1 and recipient_matches(message + 0x30)
+            return message and integer(message + 0xc, 4) == message_type and recipient_matches(message + 0x30)
 
         def fields(message):
             return {'message_object': tag('message', message), 'type': integer(message + 0xc, 4),
@@ -238,6 +260,8 @@ def run_gdb(cfg, work, seconds, on_started=None):
     """Uses no inferior calls; deadline interrupts a continue before clean detach."""
     if not 0 < seconds <= 60 or (not cfg.get('self_test') and seconds < 10):
         raise ValueError('invalid_observation_window')
+    if cfg.get('kind', 'text') not in KINDS:
+        raise ValueError('unsupported_observation_kind')
     config = work/'highlevel-config.json'
     save(config, cfg)
     script = str(Path(__file__).resolve())
@@ -267,7 +291,8 @@ def run_gdb(cfg, work, seconds, on_started=None):
                 if result.get('status') == 'observing' and not announced:
                     deadline = time.monotonic() + seconds
                     if not cfg.get('self_test'):
-                        print('本地入库观测已就绪：请现在从这台 Linux 微信向文件传输助手发一条短文字。', flush=True)
+                        item = '一张图片（以图片形式）' if cfg.get('kind') == 'image' else '一条短文字'
+                        print('本地入库观测已就绪：请现在从这台 Linux 微信向文件传输助手发' + item + '。', flush=True)
                     announced = True
                 now = time.monotonic()
                 if (deadline is not None and now >= deadline) or (deadline is None and now >= startup_deadline):
@@ -293,16 +318,20 @@ def run_gdb(cfg, work, seconds, on_started=None):
     return result
 
 
-def observe(seconds):
+def observe(seconds, kind='text'):
     if not 10 <= seconds <= 60:
         raise ValueError('observation_seconds_must_be_10_to_60')
+    if kind not in KINDS:
+        raise ValueError('unsupported_observation_kind')
     # Same process-identity checks, full-ID FUSE preparation, pinned SHA256,
     # copy removal, and stopped-process cleanup as the established probe.
     # Never import this legacy module within GDB (it has its own GDB entry).
     import native_send_probe as preparation
     previous = preparation.run_gdb
     try:
-        preparation.run_gdb = run_gdb
+        def configured(cfg, work, seconds, on_started=None):
+            return run_gdb({**cfg, 'kind': kind}, work, seconds, on_started)
+        preparation.run_gdb = configured
         return preparation.observe(seconds)
     finally:
         preparation.run_gdb = previous
@@ -312,12 +341,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['observe'])
     parser.add_argument('--seconds', type=int, default=60)
+    parser.add_argument('--kind', choices=tuple(KINDS), default='text')
     args = parser.parse_args(argv)
     if not 10 <= args.seconds <= 60:
         parser.error('--seconds must be 10..60')
     os.umask(0o077)
     try:
-        result = observe(args.seconds)
+        result = observe(args.seconds, args.kind)
     except (ValueError, OSError, subprocess.SubprocessError) as error:
         result = {'ok': False, 'error': str(error) if isinstance(error, ValueError) else type(error).__name__}
     print(json.dumps(result, ensure_ascii=False, indent=2))

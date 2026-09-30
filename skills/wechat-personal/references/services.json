@@ -55,7 +55,8 @@
         "conversations": "runtime_verified",
         "read-messages": "runtime_verified",
         "send-message": "partially_verified",
-        "send-filehelper-text": "runtime_verified"
+        "send-filehelper-text": "runtime_verified",
+        "send-personal-media": "not_connected"
       }
     },
     {
