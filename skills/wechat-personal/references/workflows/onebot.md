@@ -1,34 +1,36 @@
-# OneBot接入与已验证范围
+# OneBot 接入与已验证范围
 
-本人明确要求普通微信好友/群聊收发优先；ClawBot只能作为补充，不是普通聊天验收的前置条件。
+个人微信与 ClawBot 机器人使用不同身份。原生 OneBot 是普通微信客户端的限时 HTTP 适配，ClawBot 经 iLink 独立收发；机器人验收不能代替个人身份。CLI 接受任意精确会话 ID，发送授权按主 SKILL 的当前或事先直接/间接授权判断；filehelper 与 ClawBot 已有长期授权。
 
-2026-09-21当前结论：个人身份经OneBot12 HTTP向文件传输助手发送文字已端到端验证，本人确认只收到一条且中文、换行与emoji正常；同ID重放未重发，内容冲突被拒绝。共享参数化后端已真实运行，独立CLI写入未在本轮验收。其他收件人、媒体、OneBot事件及本地回写未验收，不能扩大为完整原生OneBot收发成功。复用见[filehelper文字契约](../capabilities/wechat/send-filehelper-text.md)；`python3 "$WX" native send-status --request-id '原请求ID'`只读对应结果，省略ID读取早期固定试验。正文、请求ID和具体任务号仅私存，不据Linux历史缺失重发。
-
-个人微信身份向文件传输助手或ClawBot发送已有长期授权，不逐次询问；其他对象需本人明确口头授权或适用的事先授权，具体发送请求即为该范围授权。ClawBot机器人身份读写的长期授权保持。当前限时入口不注册开机服务。本人新增要求把确定性微信读写拆为独立开源CLI，并在安装时配置特权自启动服务；该实现及实际安装尚待完成，独立消息接收服务仍暂缓。下文为各轮历史证据，旧的未接通结论仅对应当时路线与范围。
+2026-09-30：本机独立 CLI 系统服务已安装并启用自启动，普通 CLI filehelper 文字经手机单次完整收件与 Linux 显示确认，个人 CLI/ClawBot 文字往返通过。skill 的限时 OneBot 入口已优先改用安装的 CLI 服务，普通用户 HTTP 已有请求重放通过，原生产物未变；本轮没有把此重放当作新的 HTTP 提交验收。2026-09-21 旧原生 HTTP filehelper 文字已实际发送并获手机确认。两轮证据详见[验收记录](../verification.md)。
 
 ## 限时原生文字入口
 
-`scripts/native_onebot.py`已随skill安装，提供OneBot12 HTTP动作子集：`get_supported_actions`、`get_version`、`send_message`。默认只启用个人身份向filehelper发文字；`serve --allow-recipient EXACT_ID`可重复添加已获授权的精确原生私聊ID，其他对象路径尚待实测，不接受显示名或群ID。没有事件接口和媒体动作，不是完整OneBot实现。标准HTTP及动作格式依据[HTTP通信](https://12.onebot.dev/connect/communication/http/)、[动作请求](https://12.onebot.dev/connect/data-protocol/action-request/)和[发送消息](https://12.onebot.dev/interface/message/actions/)。本人微信的真实HTTP发送、同ID防重、内容冲突拒绝及手机收件已通过，证据见[验收记录](../verification.md)。
+提供 OneBot12 HTTP 动作子集：`get_supported_actions`、`get_version`、`send_message`。目前适配私聊文字，默认接受任意精确原生私聊 ID，调用 agent 在发送前核对授权；不接受显示名。可选 `--allow-recipient EXACT_ID` 是调用者主动限制本次临时会话（可重复，filehelper 始终加入），省略时没有隐含目标白名单。群动作、事件和媒体动作未实现，不能据此限制 CLI 群目标。标准格式参考[HTTP通信](https://12.onebot.dev/connect/communication/http/)、[动作请求](https://12.onebot.dev/connect/data-protocol/action-request/)和[发送消息](https://12.onebot.dev/interface/message/actions/)。
 
-显式启动一次临时入口：
+本机已安装 CLI，以下普通用户命令临时启动适配，无需 sudo：
 
 ```bash
-sudo python3 ~/.codex/skills/wechat-personal/scripts/native_onebot.py serve --duration 600 --max-sends 3
+python3 ~/.codex/skills/wechat-personal/scripts/native_onebot.py serve --duration 600 --max-sends 3
 ```
 
-入口只监听127.0.0.1随机端口，600秒到期退出，最多接受3次新发送请求；Ctrl+C可结束。仅使用Python标准库与现有原生后端，不注册开机服务。端口及随机Bearer保存在本人`~/.local/state/ncut-wechat-skills/native-onebot-session.json`（0600），不要输出token。启动需要本机sudo权限，已有发送授权不需再次确认。
+它只监听 127.0.0.1 随机端口，600 秒退出，最多接受 3 个唯一发送动作。端点与随机 Bearer 在本人 `~/.local/state/ncut-wechat-skills/native-onebot-session.json`（0600），不要输出 token。适配不是新常驻接收器。未安装 CLI 的机器才保留旧 sudo 适配；已安装时不能以 root 启动，也不能在失败后自动改走旧后端。
 
-普通桌面账号通过stdin提交动作，`call`读取私有入口、禁用代理和重定向：
+普通用户通过 stdin 提交动作，call 自动读取私有入口、禁用代理和重定向：
 
 ```bash
 python3 ~/.codex/skills/wechat-personal/scripts/native_onebot.py call <<'JSON'
-{"action":"send_message","params":{"detail_type":"private","user_id":"filehelper","message":[{"type":"text","data":{"text":"OneBot 原生文字测试"}}],"wechat.request_id":"replace-with-unique-ascii-id"},"echo":"optional-correlation"}
+{"action":"send_message","params":{"detail_type":"private","user_id":"filehelper","message":[{"type":"text","data":{"text":"消息文字"}}],"wechat.request_id":"replace-with-unique-ascii-id"},"echo":"optional-correlation"}
 JSON
 ```
 
-将`wechat.request_id`替换为4–80字符ASCII请求ID；`echo`只关联响应，不能代替防重ID。同ID同内容返回原结果；不同内容拒绝。成功响应的`message_id=wechat-local:<request-id>`是本地操作ID，`wechat.id_kind=local_request`明确其语义，微信客户端任务号另列`wechat.native_task_id`。成功仅表示原生往返验证、一次零错误回调及清理通过；`wechat.recipient_delivery_verified`单独记录接收端证据。
+request-id 为 4–80 字符 ASCII（首位字母或数字，其余可含 `._-`），同一操作复用同一 ID；echo 不代替防重 ID。同 ID/正文/目标返回已有记录，不同内容拒绝。文字 1–1024 个 UTF-8 字节且不含 NUL。
 
-超时或回调不确定时禁止本会话继续发送，保留后端PID、request-id和结果路径，不自动重试、不强杀未完成GDB。通过`native send-status --request-id`和实际进程状态检查同一任务；状态文件写有`pending_backend`时下次启动拒绝覆盖，先核对该任务实际完成及客户端恢复情况，再处理旧会话记录。客户端仍会保留小型回调模块直到退出，不增加常驻接收服务。
+成功响应的 `message_id=wechat-local:<request-id>` 是本地操作 ID，`wechat.id_kind=local_request` 明确其语义；`wechat.server_message_id` 和旧路径的 `wechat.native_task_id` 各自报告。ok 仅表示客户端提交及清理通过，`wechat.local_history_integrated` 和 `wechat.recipient_delivery_verified` 分别记录本地/接收端证据，不推定 UI，也不因缺读回重发。
+
+超时或未知原生状态会阻止本临时会话继续写入。安装服务拥有独立后端和 GDB；适配超时只结束普通 CLI 调用者，不强杀未完成原生调用、不回退或重试。用原 `native send-status --request-id` 和 `wechat-linux inspect-pending` 核对任务。旧适配的 `pending_backend` 记录也须核对实际进程，不根据时间或旧对话猜它已结束。回调模块保留至客户端退出。
+
+下文是历史候选与当时的实验记录，当前调用和验收范围以上文为准。
 
 ## 普通微信候选核对
 

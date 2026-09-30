@@ -92,7 +92,7 @@ class AdapterTests(unittest.TestCase):
         request = message()
         request['params']['detail_type'] = 'group'
         self.assertEqual(adapter.action(request)['retcode'], 10003)
-        self.assertEqual(onebot.Adapter(Sender()).allowed_recipients, {'filehelper'})
+        self.assertIsNone(onebot.Adapter(Sender()).allowed_recipients)
 
     def test_segment_join_echo_and_stable_local_id_replay(self):
         sender = Sender()
@@ -123,7 +123,7 @@ class AdapterTests(unittest.TestCase):
         del missing['params']['wechat.request_id']
         missing['echo'] = 'not-an-authorization-key'
         wrong_target = message()
-        wrong_target['params']['user_id'] = 'other-user'
+        wrong_target['params']['user_id'] = 'other user'
         cases = [(None, 10001), ({'action': 'send_message'}, 10001),
                  ({**message(), 'echo': float('nan')}, 10001),
                  ({'action': 'delete_message', 'params': {}}, 10002),
@@ -315,6 +315,7 @@ class CommandTests(unittest.TestCase):
             with patch.object(onebot, 'owner_identity', return_value=(1000, 1000, Path(tmp))), \
                     patch.object(onebot, 'default_session', return_value=path), \
                     patch.object(onebot.os, 'geteuid', return_value=0), \
+                    patch.object(onebot.native_cli, 'available', return_value=False), \
                     patch.object(onebot.os, 'umask'), \
                     patch.object(onebot.signal, 'signal'), \
                     patch.object(onebot, 'SessionServer') as server, \

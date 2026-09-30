@@ -27,6 +27,7 @@ import urllib.parse
 import urllib.request
 
 import native_send_candidate as backend
+import native_cli
 
 SUPPORTED = ['get_supported_actions', 'get_version', 'send_message']
 MAX_BODY = 16384
@@ -132,11 +133,25 @@ def native_response(result, request_id):
             and worker.get('callback_destroyed') == 1
             and all(worker.get(key) == 0 for key in
                     ('live_callbacks', 'error_type', 'error_code', 'failure')))
+    if result.get('queued_dispatch_call'):
+        good = (result.get('status') == 'trial_finished'
+                and result.get('detached') is True
+                and result.get('client_running_untraced') is True
+                and result.get('phase') != 'preflight'
+                and all(worker.get(key) is True for key in
+                        ('worker_done', 'manager_verified', 'request_constructed',
+                         'submission_entered', 'result_returned', 'result_success'))
+                and worker.get('dispatch_pending') is False
+                and all(worker.get(key) == 0 for key in
+                        ('live_callbacks', 'failure', 'result_code0', 'result_code1')))
     details = {'wechat.request_id': request_id, 'wechat.id_kind': 'local_request',
                'wechat.native_task_id': worker.get('task_id'),
                'wechat.recipient_delivery_verified': result.get('recipient_delivery_verified') is True,
                'wechat.automatic_retry_allowed': False,
                'wechat.backend_status': result.get('status', 'unknown')}
+    if result.get('queued_dispatch_call'):
+        details['wechat.local_history_integrated'] = result.get('local_history_integrated')
+        details['wechat.server_message_id'] = result.get('server_message_id')
     if good:
         when = result.get('completed_at')
         if not isinstance(when, (int, float)) or not math.isfinite(when):
@@ -152,9 +167,10 @@ class Adapter:
             raise ValueError('max-sends must be 1..10; action-timeout must be 1..180 seconds')
         if isinstance(allowed_recipients, (str, bytes)):
             raise ValueError('allowed_recipients must be a collection of exact native IDs')
-        self.allowed_recipients = frozenset(
-            {'filehelper'} | {private_recipient(value) for value in
-                              (() if allowed_recipients is None else allowed_recipients)})
+        # Default target access is unrestricted; agent authorization belongs
+        # in the skill. A caller may explicitly limit one temporary session.
+        self.allowed_recipients = (None if allowed_recipients is None else frozenset(
+            {'filehelper'} | {private_recipient(value) for value in allowed_recipients}))
         self.sender, self.max_sends, self.action_timeout = sender, max_sends, action_timeout
         self.sends, self.cache, self.blocked = 0, {}, False
 
@@ -176,8 +192,9 @@ class Adapter:
             return response(data=list(SUPPORTED))
         if action == 'get_version':
             return response(data={'impl': 'ncut-wechat-native-text', 'version': '0.1.0',
-                                  'onebot_version': '12', 'wechat.scope': 'temporary private text to configured native IDs only',
-                                  'wechat.allowed_recipients': sorted(self.allowed_recipients),
+                                  'onebot_version': '12', 'wechat.scope': 'temporary private text; exact native IDs',
+                                  'wechat.allowed_recipients': (None if self.allowed_recipients is None else sorted(self.allowed_recipients)),
+                                  'wechat.write_authorization': 'calling skill or owner',
                                   'wechat.events_enabled': False})
         if 'self' in request:
             return response(10102, 'Explicit self identities are not configured')
@@ -185,9 +202,13 @@ class Adapter:
         if not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{3,79}', request_id):
             return response(10003, 'wechat.request_id is required: 4..80 ASCII letters/digits/._-; echo is not an idempotency key')
         recipient = params.get('user_id')
-        if (params.get('detail_type') != 'private' or not isinstance(recipient, str)
-                or recipient not in self.allowed_recipients):
-            return response(10003, 'Only private user_id values explicitly enabled for this session are accepted')
+        try:
+            private_recipient(recipient)
+        except ValueError:
+            return response(10003, 'Expected an exact private native user_id')
+        if (params.get('detail_type') != 'private'
+                or self.allowed_recipients is not None and recipient not in self.allowed_recipients):
+            return response(10003, 'Unsupported detail_type or caller-configured session target scope')
         if set(params) - {'detail_type', 'user_id', 'message', 'wechat.request_id'}:
             return response(10004, 'Unsupported send parameter')
         message = params.get('message')
@@ -347,8 +368,8 @@ class SessionServer(HTTPServer):
                  'expires_at': self.expires_at, 'max_sends': self.adapter.max_sends,
                  'sends': self.adapter.sends, 'blocked': self.adapter.blocked,
                  'pending_backend': pending, 'events_enabled': False,
-                 'allowed_recipients': sorted(self.adapter.allowed_recipients),
-                 'scope': 'native personal identity; private text to configured native IDs only'}
+                 'allowed_recipients': (None if self.adapter.allowed_recipients is None else sorted(self.adapter.allowed_recipients)),
+                 'scope': 'native personal identity; private text; exact native IDs'}
         if status == 'running':
             value['access_token'] = self.token
         else:
@@ -409,14 +430,14 @@ def main(argv=None):
         return 0
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    serve = commands.add_parser('serve', help='explicit temporary server; sudo from desktop account')
+    serve = commands.add_parser('serve', help='temporary owner HTTP adapter; installed CLI service preferred')
     serve.add_argument('--duration', type=int, default=600)
     serve.add_argument('--max-sends', type=int, default=3)
     serve.add_argument('--action-timeout', type=int, default=90)
     serve.add_argument('--allow-recipient', action='append', type=private_recipient,
-                       default=[], metavar='EXACT_ID',
-                       help='enable an exact private native ID (repeatable; filehelper always enabled); '
-                            'requires current or prior owner authorization for that recipient')
+                       default=None, metavar='EXACT_ID',
+                       help='optionally limit this session to exact private native IDs; '
+                            'omission accepts any exact private ID, authorization stays in the skill')
     request = commands.add_parser('call', help='read one action JSON from stdin; ordinary desktop user')
     request.add_argument('--timeout', type=float, default=120)
     args = parser.parse_args(argv)
@@ -425,10 +446,15 @@ def main(argv=None):
         print(json.dumps(call(json.load(sys.stdin), timeout=args.timeout), ensure_ascii=False, indent=2))
         return 0
     uid, gid, _home = owner_identity()
-    if os.geteuid() != 0 or uid == 0:
-        raise ValueError('serve requires sudo from the desktop account; no client was touched')
     path = default_session()
-    sender = BackendProcess(path.parent, (uid, gid))
+    if native_cli.available():
+        if os.geteuid() == 0:
+            raise ValueError('Run the OneBot adapter as the ordinary desktop user; the installed service owns privilege')
+        sender = native_cli.send_text
+    else:
+        if os.geteuid() != 0 or uid == 0:
+            raise ValueError('Install the CLI service, or use the legacy sudo adapter; no client was touched')
+        sender = BackendProcess(path.parent, (uid, gid))
     adapter = Adapter(sender, args.max_sends, args.action_timeout, args.allow_recipient)
     server = SessionServer(adapter, path, args.duration, (uid, gid))
     for sig in (signal.SIGINT, signal.SIGTERM):

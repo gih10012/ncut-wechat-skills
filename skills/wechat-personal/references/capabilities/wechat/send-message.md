@@ -4,39 +4,29 @@ service: wechat
 keywords: ["发消息", "发送消息", "微信发送", "回复微信", "原生发送", "文件传输助手发送", "发送状态", "个人身份发送", "给ClawBot发", "向ClawBot发", "给ClawBot发消息", "向ClawBot发消息"]
 exclude_keywords: ["企微", "企业微信", "机器人身份"]
 status: "partially_verified"
-transport: "pinned_linux_native_client"
-workflow: references/workflows/native-send-port.md
-note: "filehelper文字的OneBot手机单次收件及防重已实测；2026-09-30独立CLI排队高层发送另通过手机单次收件、本地数据库读回及Linux显示验收。普通CLI服务部署与发送仍待验收，旧OneBot入口未切换；其他对象、媒体及事件未验收，通用发送保持partially_verified。"
+transport: "installed_linux_cli_queued_client_call"
+command: ["native", "send"]
+workflow: references/workflows/native-cli.md
+note: "CLI接受任意精确会话ID；写入授权由skill/agent判断。普通CLI系统服务实际部署；filehelper文字经手机及Linux显示验收，个人微信与ClawBot文字往返通过；其他对象、个人身份媒体与OneBot事件待验收，不设后端收件人授权白名单。"
 ---
 # 个人微信身份发送
 
-2026-09-21已验证锁定Linux版本的原生个人身份filehelper文字投递：此前固定试验及后续OneBot HTTP发送均有手机收件确认。OneBot调用共享参数化后端，完成回调一次、析构一次、存活回调零、错误为零，客户端继续运行且调试器已脱离；同ID重放未再次提交，本人确认只收到一条，中文、换行及emoji正常。可复用范围见[filehelper文字契约](send-filehelper-text.md)。普通好友/群聊、个人身份向ClawBot发送、媒体、OneBot事件及完整协议均需单独验收。
+CLI 的读取和文字写入接受任意精确原生会话 ID，包括私聊和群聊。调用 agent 按主 SKILL 判断发送授权；不能把目前验收的 filehelper、ClawBot 范围变成后端白名单，也不能因某目标未实测而自动再次询问已具备的授权。
 
-既有 skill/OneBot 低层发送适配尚未接入 Linux 本地消息回写。2026-09-30 独立 CLI 的排队高层核心已通过手机单次收件、本地数据库独立读回及 Linux 窗口显示验收，普通 CLI 服务部署与日常发送待验收，见[独立 CLI 接续](../../workflows/native-cli.md)。两条路径分别记录，不因旧路径历史缺失否定投递、重复发送或要求重新验收。
-
-## 调用与状态
-
-下文`$WX`为本skill的`scripts/wechat.py`绝对路径。先读取已有结果；这不会附加微信或发送消息：
+本机系统辅助服务已安装，以桌面 UID 加 CAP_SYS_PTRACE 运行；普通命令无需 sudo。下文 `$WX` 是本 skill 的 `scripts/wechat.py` 绝对路径：
 
 ```bash
-python3 "$WX" native send-status
+python3 "$WX" native conversations --account me --query '联系人或群名' --limit 5
+python3 "$WX" native send --recipient '返回的精确chat_id' --text '消息文字' --request-id '本次唯一ID'
 python3 "$WX" native send-status --request-id '原请求ID'
 ```
 
-无request-id时读取已验收的固定试验。可传文字的CLI入口如下，默认面向filehelper；它与OneBot共用已实测的参数化后端，但独立CLI写入未在本轮执行，日常发送优先使用上述已验证契约：
+发送目标不能用显示名，省略 recipient 默认为 filehelper。精确 ID 为 1–128 个 ASCII 字母、数字或 `_.@-`；文字为 1–1024 个 UTF-8 字节且不含 NUL。request-id 为 4–80 个 ASCII 字符，首位字母或数字，其余可含 `._-`。同一操作固定一个 ID，相同目标/正文只读取已有结果，冲突拒绝。调用失败、超时或本地历史缺失均不自动重试，不切换旧发送后端；先读取原 ID 和接收端。
 
-```bash
-sudo python3 "$WX" native send --text '消息文字' --request-id '本次唯一ID'
-```
+普通 CLI 的 filehelper 文字已通过本人手机一条完整收件、独立本地数据库读回一条及 Linux 窗口显示确认，见[文件传输助手契约](send-filehelper-text.md)。2026-09-30 个人微信 CLI→ClawBot 的文字被 iLink 精确收到，机器人回执在 Linux 本地数据库独立读回，两方向各一条且有服务器 ID；同 ID 重放未改变原生产物。ClawBot 的 Linux UI 未单独获得本人确认，其他好友/群的实际发送仍未分别验收。技术缺项和授权范围各自记录。
 
-入口复用当前桌面微信唯一主进程和登录，默认目标为filehelper；底层`--recipient`可指定1–128字节的精确原生ID（ASCII字母、数字、`_.@-`），不接受显示名。其他目标尚未验收，执行前须满足下方授权规则并从已有会话读取精确ID。依赖匹配的二进制、系统GDB/GCC及本机调试权限；入口、前置检查和系统权限说明见[原生发送流程](../../workflows/native-send-port.md)。request-id须为4–80个ASCII字母、数字、点、下划线或连字符，首字符为字母或数字；文字为1–1024个UTF-8字节且不含NUL。一次操作固定使用一个request-id，相同正文、目标和模式的已有请求只返回记录，不重复提交；内容冲突拒绝。状态不确定先读同一ID及接收端，不删除防重记录或凭本地历史缺失重发。
+`ok` 仅证明客户端提交调用完成；`local_history_integrated` 是本地数据库证据，`recipient_delivery_verified` 是独立接收端证据，均不推定 Linux UI。pending 任务须接续同一操作，不能当完成。具体账号、正文和消息 ID 只留本机。
 
-`submission_entered`、客户端`task_id`和零错误回调均不单独代表送达；`recipient_delivery_verified`记录独立收件证据。`worker_pending`或`callback_pending`需接续当前任务，不能当完成。状态中具体任务号、账号标识及消息正文只保存在本机，不写公共知识。
+向文件传输助手或 ClawBot（含测试、媒体、OneBot）已有长期授权。向其他对象写入需要当前任务授权或适用的事先直接/间接授权，例如指定对象与内容、委托回复、已授权工作流；按实际范围执行，无需重复询问。读取本人会话直接执行。ClawBot 机器人→绑定本人是另一身份，长期读写授权保持，不能用机器人发送代替个人身份验收。
 
-## 授权和后续范围
-
-个人微信身份向文件传输助手或ClawBot发送已有本人长期授权，无需逐次询问。其他对象需要本人明确口头授权或适用的事先授权；用户指定收件人和内容的发送请求即为该范围授权。执行前核对对象、内容/类型和范围，已有授权不重复询问。ClawBot机器人身份→绑定本人的长期授权和独立发送契约保持不变，不能用机器人发送代替个人身份验收。
-
-可复用`native conversations`定位及`native messages`读取已同步历史；原生投递与本地回写分别验收。[限时OneBot适配](../../workflows/onebot.md#限时原生文字入口)的filehelper文字已实测，按需限时启动，不安装常驻服务。后续格式据真实接口逐项验证，不把文字代替图片、文件、表情包或公众号卡片。
-
-此前普通Web扫码被服务端明确拒绝，未取得API会话；PadPro真实启动后外部授权失败，未获得二维码或登录。结果与后端核对见[OneBot流程](../../workflows/onebot.md)，不要求重复扫码或枚举已排查项目。仅用户要求继续接入时，按当前缺项进行有界探索。
+个人身份图片、文件、表情包及公众号卡片尚未实现或验收；逐项定位真实客户端入口及上传/对象生命周期，不能把文字、链接或机器人媒体代作完成。OneBot 当前仅提供限时私聊文字动作子集和已列元信息动作，事件、群动作及媒体动作仍缺项；这属于协议适配范围，CLI 不因它限制群聊目标。详见[OneBot流程](../../workflows/onebot.md)。

@@ -1,6 +1,10 @@
 # 验收范围
 
-2026-09-30 更新：独立 `wechat-linux-cli` 的排队高层 filehelper 文字发送真实通过客户端管理器/请求构造/提交、零存活回调及调试器清理。本地数据库独立读回一条完整正文并有服务器 ID；本人确认手机只收到一条、中文/换行/emoji 完整，Linux 聊天窗口也显示。相同请求 ID 重放只读原结果，工作产物内容及修改时间未变。该路径通过了客户端真实入库及本地显示验收；普通 CLI 系统部署/服务发送仍待验收，旧 skill/OneBot 低层发送尚未切换。同步预检入口保持禁用，其他目标、媒体和事件不据此升为已验证。正文、账号、请求及消息 ID 只留本机，接续见[独立 CLI](workflows/native-cli.md)。
+2026-09-30 当前范围：独立 CLI 排队高层 filehelper 核心及部署后普通 CLI filehelper 发送均通过客户端真实创建、零存活回调、调试器清理和一条本地读回，且有服务器 ID；本人确认手机单次完整收件及 Linux 窗口显示。系统服务已安装、启用自启动，以桌面 UID 加 CAP_SYS_PTRACE 运行，代码归 root 所有，socket/目录权限核对通过。普通用户服务同 ID 防重与冲突拒绝通过。
+
+个人微信 CLI→ClawBot 文字被 iLink 精确收到，机器人回执在 Linux 数据库独立读回；两方向各一条且有服务器 ID。重放只读原结果，原生工作产物内容/修改时间未变。skill native 与限时 OneBot 优先使用安装的 CLI，写入失败不自动回退；普通用户 OneBot HTTP→服务的已有请求重放通过，但尚未据此证明一次新的 HTTP 提交。临时适配已正常退出。filehelper UI 已确认，ClawBot UI 未独立确认；其他目标、个人身份媒体、OneBot 事件、部署后的新密钥采集及长期稳定性分别保持未验收。
+
+授权与后端范围已按本人要求修正：CLI 任意精确会话 ID，skill/agent 判断当前或事先直接/间接发送授权，不内置 filehelper/ClawBot 授权白名单。任意目标修正包已安装，安装清单与 wheel 校验一致，16 个安装包文件逐个匹配且归 root 所有，重启后服务健康及既有请求读取通过。更新命令在重启后的即时检查报错；据独立证据确认部署完成，脚本已加入只读就绪等待，无需再次执行 sudo。同步协程入口仍禁用，账号、正文和消息 ID 仅私存；见[独立 CLI](workflows/native-cli.md)。下文为各轮当时的验收记录，旧的未接通/未切换状态不覆盖本段当前范围。
 
 2026-09-21当前发送范围：锁定Linux版本的个人身份filehelper文字已通过真实OneBot12 HTTP调用及手机收件验收；本人确认只收到一条，中文、换行和emoji显示正常，同ID重放未重发。可复用调用见[filehelper文字契约](capabilities/wechat/send-filehelper-text.md)。共享参数化后端已在此次OneBot调用中运行，独立`native send` CLI写入未在本轮验收。其他收件人、媒体、OneBot事件及本地回写未验收，通用send-message仍为`partially_verified`。`native send-status --request-id '原请求ID'`只读对应结果；省略ID读取此前已验收的固定试验。Linux历史缺失不能据此判投递失败或重发。
 
