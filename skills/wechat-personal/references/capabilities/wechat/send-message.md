@@ -6,13 +6,13 @@ exclude_keywords: ["企微", "企业微信", "机器人身份"]
 status: "partially_verified"
 transport: "pinned_linux_native_client"
 workflow: references/workflows/native-send-port.md
-note: "2026-09-21个人身份经OneBot向文件传输助手发送文字已获手机单次收件确认，中文、换行与emoji正常，同ID防重通过；共享参数化后端已实测，独立CLI写入未在本轮验收。其他对象、媒体、OneBot事件及本地回写未验收，通用发送保持partially_verified。"
+note: "filehelper文字的OneBot手机单次收件及防重已实测；2026-09-30独立CLI排队高层发送另通过手机单次收件、本地数据库读回及Linux显示验收。普通CLI服务部署与发送仍待验收，旧OneBot入口未切换；其他对象、媒体及事件未验收，通用发送保持partially_verified。"
 ---
 # 个人微信身份发送
 
 2026-09-21已验证锁定Linux版本的原生个人身份filehelper文字投递：此前固定试验及后续OneBot HTTP发送均有手机收件确认。OneBot调用共享参数化后端，完成回调一次、析构一次、存活回调零、错误为零，客户端继续运行且调试器已脱离；同ID重放未再次提交，本人确认只收到一条，中文、换行及emoji正常。可复用范围见[filehelper文字契约](send-filehelper-text.md)。普通好友/群聊、个人身份向ClawBot发送、媒体、OneBot事件及完整协议均需单独验收。
 
-当前发送适配尚未接入Linux本地消息回写。手机收件确认与本地历史缺项分别记录，不能因历史缺失否定投递、重复发送或要求重新验收。
+既有 skill/OneBot 低层发送适配尚未接入 Linux 本地消息回写。2026-09-30 独立 CLI 的排队高层核心已通过手机单次收件、本地数据库独立读回及 Linux 窗口显示验收，普通 CLI 服务部署与日常发送待验收，见[独立 CLI 接续](../../workflows/native-cli.md)。两条路径分别记录，不因旧路径历史缺失否定投递、重复发送或要求重新验收。
 
 ## 调用与状态
 

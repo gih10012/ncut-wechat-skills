@@ -15,7 +15,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 学校信息：直接使用同套 [ncut-web-api](../ncut-web-api/SKILL.md) 的课表、场地余量或对应接口；不先启动微信/企微。
 - 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。`runtime_verified` 命中直接按对应命令/请求执行，正常结果即结束；未验证条目按 `next` 做局部发现，不把检索命中当作可用。细节仅按能力 ID 加 `--details` 或读对应文件。
 - 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
-- 个人微信身份发送：经OneBot向文件传输助手发送文字已端到端验证，本人确认只收到一条且中文、换行和emoji正常，同ID重放没有重发。直接按[filehelper文字契约](references/capabilities/wechat/send-filehelper-text.md)调用；底层参数化后端已实测，独立`native send` CLI写入未在本轮验收。状态读取用`python3 "$WX" native send-status --request-id '原请求ID'`，不会重发；省略ID仅读取早期固定试验。其他对象、媒体、OneBot事件及本地回写未验收，见[通用发送契约](references/capabilities/wechat/send-message.md)。不据Linux历史缺失否定手机投递或重发。企微消息仍未接通，确需时按[消息接入](references/workflows/messages.md)检查局部新证据。已有读取只覆盖本机已同步历史，媒体仅标类型。
+- 个人微信身份发送：经OneBot向文件传输助手发送文字已端到端验证，本人确认只收到一条且中文、换行和emoji正常，同ID重放没有重发。直接按[filehelper文字契约](references/capabilities/wechat/send-filehelper-text.md)调用。2026-09-30 独立 CLI 的排队高层发送另已通过手机单次收件、本地数据库一条读回及 Linux 窗口显示验收；普通 CLI 服务部署尚未完成，继续开发看[独立 CLI 接续](references/workflows/native-cli.md)。既有 OneBot/skill 低层入口尚未切换，其本地历史缺项不用于判断投递失败。状态读取用`python3 "$WX" native send-status --request-id '原请求ID'`，不会重发；省略ID仅读取早期固定试验。其他对象、媒体及OneBot事件未验收，见[通用发送契约](references/capabilities/wechat/send-message.md)。企微消息仍未接通，确需时按[消息接入](references/workflows/messages.md)检查局部新证据。已有读取只覆盖本机已同步历史，媒体仅标类型。
 - 企微通知补充已暂缓：本人手机为原生鸿蒙，先前Android假设已更正；不再提示安装SmsForwarder或启动手机验收。现有`notifications list --account me --limit 20`与MCP `wecom_notifications`仅保留本机归档读取，真实手机投递未验证；旧方案见[Android通知](references/workflows/android-notifications.md)。OpenHarmony手机接入留待后续，当前不扩展手机工程。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定及真实文字、文件、图片、语音入站。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
 - ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。本地读回仅在用户要求验收或排查时可选使用；电脑微信离线不影响ClawBot经iLink独立收发，不因本地未读回阻断或判失败。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
@@ -45,7 +45,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 本人允许以后增加与主 skill 解耦的轻量常驻接收器，部署在服务器或本机；当前暂缓实现与部署，普通查询不启动或管理它。仅处理部署需求时读[独立服务说明](../../BACKGROUND-RECEIVER.md)。
 
-本人新追加的独立 Linux CLI 辅助服务另行处理：安装时一次配置特权自启动服务，日常普通命令读写。此授权覆盖该辅助服务的旧暂缓约束；后台消息接收器仍暂缓。独立 CLI 开源开发预览已发布并完成安装包读取验证，真实特权部署及本地消息显示修复尚未验收；安装或继续开发时读[独立 CLI 接续](references/workflows/native-cli.md)，普通已验证查询仍走上面的现有入口。
+本人新追加的独立 Linux CLI 辅助服务另行处理：安装时一次配置特权自启动服务，日常普通命令读写。此授权覆盖该辅助服务的旧暂缓约束；后台消息接收器仍暂缓。独立 CLI 已完成安装包读取验证及排队发送后的本地显示实测，真实特权部署及日常服务发送待验收；安装或继续开发时读[独立 CLI 接续](references/workflows/native-cli.md)，普通已验证查询仍走上面的现有入口。
 
 学校登录：`login --platform school --service 教务`（或预约），本人完成后 `login finish`；平台/服务保存在本机。`login --platform wechat` 默认检查现有本地读取，返回的 `NATIVE_READ_READY` 不证明客户端在线或远端登录有效；日常查询直接 native，不预查登录。确需本人扫码时使用显式 `--transport current-desktop`，只在登录任务需要时读 [认证入口](references/workflows/login.md)。企微原生入口仍未配置。
 

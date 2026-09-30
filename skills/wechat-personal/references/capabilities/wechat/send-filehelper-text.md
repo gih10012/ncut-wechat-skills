@@ -26,4 +26,4 @@ note: "已通过本人Linux微信真实OneBot调用发送filehelper中文多行�
 
 `status=ok`仅在原生往返、一次零错误回调、回调释放及调试器清理通过后返回。`message_id`是本地请求ID，原生任务号另列，不能当服务器消息ID。`wechat.recipient_delivery_verified`是该请求独立收件证据，正常新请求可能为false，不因此重发；本项验收已另获本人确认。只读查询原生记录用`python3 "$WX" native send-status --request-id '原请求ID'`。
 
-当前适配未写回Linux本地发送历史，不能凭历史缺少该条判断失败。若需要个人身份向其他目标或发送媒体，读取[通用发送状态](send-message.md)，逐项按证据推进。
+本契约的旧 OneBot 适配未写回 Linux 本地发送历史，不能凭历史缺少该条判断失败。2026-09-30 独立 CLI 排队高层核心另已通过真实入库、Linux 显示及手机单次收件验收，服务部署与日常 CLI 发送待验收；不要把旧入口当成已切换，开发接续见[独立 CLI](../../workflows/native-cli.md)。若需要个人身份向其他目标或发送媒体，读取[通用发送状态](send-message.md)，逐项按证据推进。

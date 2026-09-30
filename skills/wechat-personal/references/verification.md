@@ -1,5 +1,7 @@
 # 验收范围
 
+2026-09-30 更新：独立 `wechat-linux-cli` 的排队高层 filehelper 文字发送真实通过客户端管理器/请求构造/提交、零存活回调及调试器清理。本地数据库独立读回一条完整正文并有服务器 ID；本人确认手机只收到一条、中文/换行/emoji 完整，Linux 聊天窗口也显示。相同请求 ID 重放只读原结果，工作产物内容及修改时间未变。该路径通过了客户端真实入库及本地显示验收；普通 CLI 系统部署/服务发送仍待验收，旧 skill/OneBot 低层发送尚未切换。同步预检入口保持禁用，其他目标、媒体和事件不据此升为已验证。正文、账号、请求及消息 ID 只留本机，接续见[独立 CLI](workflows/native-cli.md)。
+
 2026-09-21当前发送范围：锁定Linux版本的个人身份filehelper文字已通过真实OneBot12 HTTP调用及手机收件验收；本人确认只收到一条，中文、换行和emoji显示正常，同ID重放未重发。可复用调用见[filehelper文字契约](capabilities/wechat/send-filehelper-text.md)。共享参数化后端已在此次OneBot调用中运行，独立`native send` CLI写入未在本轮验收。其他收件人、媒体、OneBot事件及本地回写未验收，通用send-message仍为`partially_verified`。`native send-status --request-id '原请求ID'`只读对应结果；省略ID读取此前已验收的固定试验。Linux历史缺失不能据此判投递失败或重发。
 
 公众号文章 GET 已实测，输出区分文字层和图片，不把文章读取当作本人收件箱。学校业务会话由配套 ncut-web-api 独立验证。
