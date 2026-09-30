@@ -24,4 +24,6 @@ wechat-linux send-status --request-id '已有请求ID'
 
 仅在继续本地显示修复时，`scripts/native_highlevel_probe.py` 可做有界、只读的高层请求→入库→本地ID→更新关联观察。它已通过合成 GDB 测试、固定 ELF 签名核对及上述一次真实观察；不要把探针或现有低层发送标为本地显示已修复。
 
+2026-09-30：独立 CLI 的主动高层预检在获取当前协程上下文时触发真实客户端崩溃，尚未构造请求或进入发送入口。该预检入口已禁用，新请求在进程准备和附加之前拒绝，旧请求结果仍可读取。线程名、创建时间和 futex 空闲状态不能证明存在活跃协程上下文；继续开发先离线核对上下文获取与调度路径，不让本人重复运行旧预检，也不把只读观察探针与主动调用预检混为一项。
+
 私有当前证据与待本人协助事项位于 `~/.local/state/ncut-wechat-skills/next-actions.md`；详细静态报告位于该目录的 `source-review/hook-port/local-history-analysis/REPORT-20260921.md`。只有继续此开发任务才读取这些材料，不让普通查询重新展开逆向工作。

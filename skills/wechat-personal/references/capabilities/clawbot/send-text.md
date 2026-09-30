@@ -20,4 +20,6 @@ ClawBot读写已获本人长期授权，无需逐次确认。`--request-id`为1�
 
 发送前在账号`sends/`私存请求指纹与client_id，响应后保存结果，不存正文或上下文凭证。网络超时、错误响应或中断不能确定是否已送达时，不换新ID盲重试。`BOT_SEND_ACCEPTED`表示API受理，`server_message_id`存在时保留；返回的`delivery_verified=false`表示命令本身没有接收端读回能力。需要实际收件端证据才报告送达。
 
+`BOT_BUSINESS_ERROR_-2` 表示服务拒绝，不能报告已发送。旧回复上下文失效是可能原因，不能仅凭错误码确定原因或硬编码有效期。2026-09-30实测短文字被拒绝；本人发来新文字后执行 `bot updates` 保存新上下文，随后另一条短文字发送受理且本地会话读回成功。处理这类失败时，请本人用手机给已绑定 ClawBot 发一条新文字，读取后及时发送；不直接重新扫码或循环重试。确定拒绝的旧操作仍保留原 request ID 结果；上下文更新后的发送使用新的操作 ID。腾讯项目中的[同类报告](https://github.com/Tencent/openclaw-weixin/issues/225)和[较短上下文窗口报告](https://github.com/Tencent/openclaw-weixin/issues/286)并未给出一致的有效期，因此长期主动推送的可靠性仍需单独验证。
+
 2026-09-18从已安装skill、以`/tmp`为工作目录真实调用，服务端返回消息ID；本人随后确认手机ClawBot收到对应文字。当天旧Linux版本尚未查询到ClawBot。9月19日升级至4.1.13后已能从本地历史读回该消息，以及新发出的OneBot回执；需要验收/排查时可选按[本地历史与读回](read-history.md)确认收件，电脑微信离线不阻断iLink收发；不能把CLI的`delivery_verified=false`误解为本地永远无法验证。本次不证明普通好友/群聊OneBot发送，也不证明代本人通过原生微信发送。
