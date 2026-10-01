@@ -7,7 +7,7 @@ status: "partially_verified"
 transport: "installed_linux_cli_queued_client_call"
 command: ["native", "send"]
 workflow: references/workflows/native-cli.md
-note: "CLI接受任意精确会话ID；写入授权由skill/agent判断。普通CLI系统服务实际部署；filehelper文字经手机及Linux显示验收，个人微信与ClawBot文字往返通过；其他对象、个人身份媒体与OneBot事件待验收，不设后端收件人授权白名单。"
+note: "CLI接受任意精确会话ID；写入授权由skill/agent判断。普通CLI系统服务实际部署；filehelper文字经手机及Linux显示验收，个人微信与ClawBot文字往返通过；其他对象、其他个人身份媒体与OneBot事件待验收，不设后端收件人授权白名单。"
 ---
 # 个人微信身份发送
 
@@ -29,4 +29,4 @@ python3 "$WX" native send-status --request-id '原请求ID'
 
 向文件传输助手或 ClawBot（含测试、媒体、OneBot）已有长期授权。向其他对象写入需要当前任务授权或适用的事先直接/间接授权，例如指定对象与内容、委托回复、已授权工作流；按实际范围执行，无需重复询问。读取本人会话直接执行。ClawBot 机器人→绑定本人是另一身份，长期读写授权保持，不能用机器人发送代替个人身份验收。
 
-个人身份图片、文件、表情包及公众号卡片尚未实现或验收，当前证据和下一步见[个人媒体验收缺项](send-personal-media.md)；逐项定位真实客户端入口及上传/对象生命周期，不能把文字、链接或机器人媒体代作完成。OneBot 当前仅提供限时私聊文字动作子集和已列元信息动作，事件、群动作及媒体动作仍缺项；这属于协议适配范围，CLI 不因它限制群聊目标。详见[OneBot流程](../../workflows/onebot.md)。
+个人身份 PNG/JPEG 已按[图片契约](send-personal-image.md)完成普通 CLI 实测；文件、原生表情包及公众号卡片继续开发，当前证据和下一步见[个人媒体验收缺项](send-personal-media.md)；逐项定位真实客户端入口及上传/对象生命周期，不能把文字、链接或机器人媒体代作完成。OneBot 当前仅提供限时私聊文字动作子集和已列元信息动作，事件、群动作及媒体动作仍缺项；这属于协议适配范围，CLI 不因它限制群聊目标。详见[OneBot流程](../../workflows/onebot.md)。

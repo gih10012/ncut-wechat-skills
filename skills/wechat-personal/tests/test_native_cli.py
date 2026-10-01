@@ -10,6 +10,20 @@ import native_cli
 
 
 class InstalledBridgeTests(unittest.TestCase):
+    def test_native_image_routes_once_and_rejects_mixed_content(self):
+        with patch.object(native_cli.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            self.assertEqual(native_cli.main(['send', '--recipient', 'fixture@chatroom',
+                '--image', '/owner/中文 $(literal).png', '--request-id', 'bridge-image']), 0)
+            self.assertEqual(run.call_args.args[0], [str(native_cli.CLI), 'send-image',
+                '--recipient', 'fixture@chatroom', '--file', '/owner/中文 $(literal).png',
+                '--request-id', 'bridge-image'])
+            run.assert_called_once()
+            with self.assertRaises(ValueError):
+                native_cli.main(['send', '--image', '/owner/image.png', '--text', 'extra',
+                                 '--request-id', 'mixed-content'])
+            run.assert_called_once()
+
     def test_native_send_delegates_literal_unicode_once_and_never_falls_back(self):
         with patch.object(native_cli.subprocess, 'run') as run:
             run.return_value.returncode = 1

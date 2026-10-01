@@ -24,6 +24,7 @@ Current priority: finish personal WeChat before resuming WeCom: ClawBot sends to
 - Personal WeChat CLI reads/writes accept any exact native conversation ID. Do not implement filehelper/ClawBot recipient allowlists as an authorization gate in the deterministic backend. The calling agent enforces write authorization in the skill, including applicable direct or indirect prior authorization; readonly access needs no per-conversation permission. Runtime acceptance scope and authorization are separate from technical target syntax.
 - For writes, resolve current targets, body, prerequisites and success/readback behavior from current evidence. Keep one-time code/ticket/captcha values private. Readonly POSTs and local drafts must not be reported as remote writes. Non-idempotent failures require readback before retry.
 - New-capability exploration has a 15-minute active-work limit per business objective, excluding time waiting for the user's authentication. Changing routes does not reset it. At the limit, stop that branch and report evidence, the remaining gap, and next options; never substitute an easier example as successful acceptance. Ask only for missing choices/authentication that cannot be obtained locally.
+- Task exception authorized by the owner on 2026-09-30: continue the current personal WeChat CLI media development until real runtime usability; the 15-minute discovery limit does not apply to this development task. Keep the default limit for unrelated daily capability discovery.
 
 # Publishing and validation
 
