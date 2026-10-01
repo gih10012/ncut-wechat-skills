@@ -17,7 +17,7 @@ python3 scripts/install.py
 对 Codex 直接说“查本周课表”“找今晚的空教室”“查羽毛球预约规则”，或给出一个新业务目标。没有现成子能力时，skill 应自行从服务注册表、目录、页面/客户端和已观察的请求继续探索，而非要求用户先提供 API。
 
 - [学校 skill](skills/ncut-web-api/SKILL.md)：课表、成绩、空教室、预约日历和规则已真实调用验证。
-- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索、个人身份经OneBot向文件传输助手发送文字、ClawBot第三方SDK文字/文件/图片收发、语音文件下载及公众号文字层已验证；普通CLI个人身份PNG/JPEG、中文文件名TXT与ZIP亦已通过ClawBot独立下载及Linux显示验收；普通CLI公众号/小程序转发及自定义XML也已通过服务器回包/Linux卡片显示，手机点击待确认；其他收件人、原生表情包、OneBot事件及企微消息待验收。
+- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索、个人身份经OneBot向文件传输助手发送文字、ClawBot第三方SDK文字/文件/图片收发、语音文件下载及公众号文字层已验证；普通CLI个人身份PNG/JPEG、中文文件名TXT与ZIP亦已通过ClawBot独立下载及Linux显示验收；普通CLI公众号/小程序转发及自定义XML也已通过服务器回包/Linux卡片显示，本人手机单次显示与点击打开亦已确认；其他收件人、原生表情包、OneBot事件及企微消息待验收。
 - 子能力存放在 `references/capabilities/`；必要的多请求编排存放在 `references/workflows/`。它们是可检索的子 skill，不为每个 endpoint 新建顶层 skill。
 
 ## 版本与验收

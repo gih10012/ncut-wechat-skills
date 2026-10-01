@@ -7,7 +7,7 @@ status: "runtime_verified"
 transport: "installed_linux_cli_queued_app_message"
 command: ["native", "forward"]
 workflow: references/workflows/native-cli.md
-note: "2026-10-01普通CLI向文件传输助手真实转发公众号文章和type33小程序，修改标题/描述的自定义XML亦发送；独立XML字段、服务器ID与Linux完整卡片显示通过，同ID重放未再次提交。手机投递与点击、type36及其他收件人待独立确认。"
+note: "2026-10-01普通CLI向文件传输助手真实转发公众号文章和type33小程序，修改标题/描述的自定义XML亦发送；独立XML字段、服务器ID与Linux完整卡片显示通过，同ID重放未再次提交。本人手机单次完整显示与点击已确认；type36及其他收件人待独立验收。"
 ---
 # 个人微信转发与自定义 XML
 
@@ -28,4 +28,4 @@ python3 "$WX" native send-status --request-id '原ID'
 
 2026-10-01 普通用户在仓库外运行已安装 CLI：文章转发、小程序33转发、自定义文章标题/中文描述/换行/✅各生成一条本地消息并取得服务器ID；Linux UI均显示完整卡片。独立原始XML读回验证文章标题/URL/来源、小程序appid/username/pagepath及实际预览图引用、自定义标题/描述。三次相同ID重放未改变原生产物与私有快照，转发ID改为直接XML动作拒绝。
 
-手机投递、手机点击打开、ClawBot卡片通道及其他收件人仍待独立确认。`ok`仅证明客户端提交完成；默认 `local_history_card_matches` 是标题/类型/URL匹配候选数，不自动证明完整XML、UI或投递。独立确认另存私有 acceptance，不改原始调用结果。
+本人已通过ClawBot确认上述三条手机单次完整显示及文章/小程序点击打开。ClawBot卡片通道及其他收件人仍待独立验收。`ok`仅证明客户端提交完成；默认 `local_history_card_matches` 是标题/类型/URL匹配候选数，不自动证明完整XML、UI或投递。独立确认另存私有 acceptance，不改原始调用结果。

@@ -1,6 +1,6 @@
 ---
 name: wechat-personal
-description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、普通 CLI 个人身份向文件传输助手及 ClawBot 发文字、ClawBot 文字/文件/图片收发及语音下载、公众号和部分学校 Web；普通 CLI 个人身份 PNG/JPEG、中文文件名TXT与ZIP发送亦已验收；公众号文章/小程序转发及自定义XML亦通过普通CLI服务器回包与Linux显示验收，手机点击待确认；其他原生媒体、收件人、OneBot 事件与企微消息待验收。
+description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、普通 CLI 个人身份向文件传输助手及 ClawBot 发文字、ClawBot 文字/文件/图片收发及语音下载、公众号和部分学校 Web；普通 CLI 个人身份 PNG/JPEG、中文文件名TXT与ZIP发送亦已验收；公众号文章/小程序转发及自定义XML亦通过普通CLI服务器回包与Linux显示验收，本人手机单次显示与点击打开亦已确认；其他原生媒体、收件人、OneBot 事件与企微消息待验收。
 ---
 
 # 微信 / 企微信息入口
@@ -18,7 +18,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 个人微信身份发送：`python3 "$WX" native send --recipient '精确 chat_id' --text '消息文字' --request-id '本次唯一ID'`，省略 recipient 默认文件传输助手。本机已安装独立 CLI 和自启动辅助服务，日常无需 sudo；skill 优先调用该 CLI，失败不改走旧发送器。2026-09-30 普通 CLI 的文件传输助手文字通过手机单次完整收件、本地数据库一条读回及 Linux 窗口显示验收；个人微信→ClawBot→本人文字往返亦通过 iLink 入站与独立本地读回。同 ID 重放不重发。直接按[filehelper文字契约](references/capabilities/wechat/send-filehelper-text.md)或[通用发送契约](references/capabilities/wechat/send-message.md)执行。`native send-status --request-id '原请求ID'`只读结果；状态未知保留原 ID，不能凭本地历史缺失重发。CLI 接受任意精确会话 ID，写入授权按下文判断；其他收件人的实际行为、其他个人身份媒体及 OneBot 事件待分别验收。已有读取仅覆盖本机同步历史，媒体仅标类型；企微消息缺项见[消息接入](references/workflows/messages.md)。
 - 个人微信图片：`python3 "$WX" native send --recipient '精确chat_id' --image '/路径/image.png' --request-id '唯一ID'`。PNG/JPEG、最多 10 MiB，普通 CLI→ClawBot 的单次入站、下载字节一致及 Linux UI 已真实验收；直接按[图片契约](references/capabilities/wechat/send-personal-image.md)执行。原生表情包继续开发，卡片见下文转发契约。
 - 个人微信文件：`python3 "$WX" native send --recipient '精确chat_id' --file '/路径/文件.zip' --request-id '唯一ID'`。常规文件 1 字节到 10 MiB，保留原文件名；中文文件名TXT和ZIP已通过普通 CLI→ClawBot 单次入站、下载文件名/字节一致及 Linux UI 验收。按[文件契约](references/capabilities/wechat/send-personal-file.md)执行，同 ID 绑定文件名和内容，改名冲突拒绝。
-- 个人微信转发与自定义 XML：`native forward --chat '精确源chat_id' --local-id 123 --database message/message_0.db --recipient '精确目标chat_id' --request-id '唯一ID'`，源 ID/分片来自 `native messages`。`native message-xml`读取对应原始 XML；`native send --xml '/路径/card.xml'`发送自定义卡片。按[转发/XML契约](references/capabilities/wechat/forward-card.md)直接调用。文章5、小程序33、修改标题/描述的XML已通过普通CLI真实发送、独立字段/服务器ID和Linux完整卡片显示；手机投递/点击及type36仍待确认。
+- 个人微信转发与自定义 XML：`native forward --chat '精确源chat_id' --local-id 123 --database message/message_0.db --recipient '精确目标chat_id' --request-id '唯一ID'`，源 ID/分片来自 `native messages`。`native message-xml`读取对应原始 XML；`native send --xml '/路径/card.xml'`发送自定义卡片。按[转发/XML契约](references/capabilities/wechat/forward-card.md)直接调用。文章5、小程序33、修改标题/描述的XML已通过普通CLI真实发送、独立字段/服务器ID和Linux完整卡片显示；本人已确认手机显示/单次收件/点击；type36仍待实测。
 - 企微通知补充已暂缓：本人手机为原生鸿蒙，先前Android假设已更正；不再提示安装SmsForwarder或启动手机验收。现有`notifications list --account me --limit 20`与MCP `wecom_notifications`仅保留本机归档读取，真实手机投递未验证；旧方案见[Android通知](references/workflows/android-notifications.md)。OpenHarmony手机接入留待后续，当前不扩展手机工程。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定及真实文字、文件、图片、语音入站。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
 - ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。本地读回仅在用户要求验收或排查时可选使用；电脑微信离线不影响ClawBot经iLink独立收发，不因本地未读回阻断或判失败。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
