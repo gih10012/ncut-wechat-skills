@@ -8,6 +8,10 @@
 wechat-linux status
 wechat-linux conversations --query '联系人或群名' --limit 5
 wechat-linux messages --chat '精确 chat_id' --limit 20
+wechat-linux moments --limit 20
+wechat-linux moments --user '精确微信用户ID或唯一完整名称' --limit 20
+wechat-linux moments --cursor '上一页 next_cursor'
+wechat-linux moments --all
 wechat-linux service-status
 wechat-linux send-text --recipient '精确 chat_id' --text '消息文字' --request-id '本次唯一ID'
 wechat-linux send-image --recipient '精确 chat_id' --file '/路径/image.png' --request-id '图片唯一ID'
@@ -56,3 +60,5 @@ wechat-linux inspect-pending
 `scripts/native_highlevel_probe.py` 是有界的高层只读观察工具，曾串起正常窗口文字请求→初始入库→本地 ID→回包更新；它不等于主动发送预检。新增 `observe --kind image --seconds 60` 区分公共请求字段和数据库消息类型，严格过滤实际观察到的图片类。两轮真实 UI 图片观察安全脱离，四个断点各命中一次，但旧过滤没有关联事件；已据真实请求类/字段值修正。合成 GDB 的字段区分、关联、无正文读取、SIGPIPE 处理及脱离通过，修正后的真实关联仍未验收；图片主动发送随后已通过普通 CLI 验收。它只读取生命周期字段，不调用发送函数；附加权限仍需本机 sudo。媒体继续开发需验证专用请求、上传及对象生命周期，不能仅修改文字请求类型。私有接续在本机 `next-actions.md`、`CONTEXT-PROOF-20260930.md` 和原生产物中；账号、正文、捕获与任务 ID 不发布。
 
 2026-10-01 图片入口已接入普通 CLI 并真实部署。PNG/JPEG→ClawBot 均经单次 iLink 入站下载、字节一致、Linux UI 显示及本地新增图片记录验收；图片同 ID 防重及跨动作冲突拒绝通过。详见[图片契约](../capabilities/wechat/send-personal-image.md)。上文修正探针尚未重新做完整真实关联，仍是单独的观察器状态，不能据此否定后续主动图片验收。文件按[文件契约](../capabilities/wechat/send-personal-file.md)亦已通过普通 CLI→ClawBot 的中文文件名TXT、ZIP实测，普通CLI文章5/小程序33转发及自定义XML已取得服务器回包并在Linux完整显示，字段读回和防重通过；本人手机单次完整显示与点击打开亦已确认。见[转发/XML契约](../capabilities/wechat/forward-card.md)。动画GIF通过原生47表情请求的普通CLI发送、本地XML的MD5/长度、服务器ID、Linux动画及防重验收，本人确认手机文件传输助手正常。ClawBot手机端不支持自定义表情、仅支持emoji；该限制独立记录，不再要求ClawBot收件验收。见[表情契约](../capabilities/wechat/send-personal-sticker.md)，PNG/JPEG表情及其他对象仍未验收。
+
+2026-10-01 朋友圈动态与指定人完整字段读取、默认20条分页和全部已加载历史已接入。正常微信窗口加载更早动态和指定人相册后，可由普通CLI读回；`--all`不截断缓存，`next_cursor`按无符号64位ID且绑定账号/作者，正文、媒体资源属性、点赞/评论和未知XML字段均保留。朋友圈读取不经过特权服务。云端更新/更早历史用computer-use补齐并记录实际可见边界；指定人真实出现仅展示最近一个月，已有旧缓存不证明当前全部可见。详见[朋友圈工作流](moments.md)。
