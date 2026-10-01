@@ -10,6 +10,19 @@ import native_cli
 
 
 class InstalledBridgeTests(unittest.TestCase):
+    def test_native_sticker_routes_once_and_refuses_mixed_content(self):
+        with patch.object(native_cli.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            self.assertEqual(native_cli.main(['send', '--sticker', '/owner/中文 $(literal).gif',
+                                             '--request-id', 'bridge-sticker']), 0)
+            self.assertEqual(run.call_args.args[0], [str(native_cli.CLI), 'send-sticker',
+                '--recipient', 'filehelper', '--file', '/owner/中文 $(literal).gif',
+                '--request-id', 'bridge-sticker'])
+            with self.assertRaises(ValueError):
+                native_cli.main(['send', '--sticker', '/owner/sticker.gif', '--image', '/owner/a.png',
+                                 '--request-id', 'mixed-sticker'])
+            run.assert_called_once()
+
     def test_native_xml_routes_once_and_forward_passes_precise_source(self):
         with patch.object(native_cli.subprocess, 'run') as run:
             run.return_value.returncode = 0

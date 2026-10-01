@@ -1,6 +1,6 @@
 ---
 name: wechat-personal
-description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、普通 CLI 个人身份向文件传输助手及 ClawBot 发文字、ClawBot 文字/文件/图片收发及语音下载、公众号和部分学校 Web；普通 CLI 个人身份 PNG/JPEG、中文文件名TXT与ZIP发送亦已验收；公众号文章/小程序转发及自定义XML亦通过普通CLI服务器回包与Linux显示验收，本人手机单次显示与点击打开亦已确认；其他原生媒体、收件人、OneBot 事件与企微消息待验收。
+description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、普通 CLI 个人身份文字、PNG/JPEG、中文文件名TXT/ZIP、公众号文章/小程序转发、自定义XML及动画GIF原生表情；卡片与GIF在文件传输助手有本人手机确认。ClawBot经iLink独立文字/文件/图片收发及语音下载已验证，其手机端不支持自定义表情。其他格式、收件人、OneBot事件与企微消息待验收。
 ---
 
 # 微信 / 企微信息入口
@@ -16,14 +16,15 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。`runtime_verified` 命中直接按对应命令/请求执行，正常结果即结束；未验证条目按 `next` 做局部发现，不把检索命中当作可用。细节仅按能力 ID 加 `--details` 或读对应文件。
 - 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
 - 个人微信身份发送：`python3 "$WX" native send --recipient '精确 chat_id' --text '消息文字' --request-id '本次唯一ID'`，省略 recipient 默认文件传输助手。本机已安装独立 CLI 和自启动辅助服务，日常无需 sudo；skill 优先调用该 CLI，失败不改走旧发送器。2026-09-30 普通 CLI 的文件传输助手文字通过手机单次完整收件、本地数据库一条读回及 Linux 窗口显示验收；个人微信→ClawBot→本人文字往返亦通过 iLink 入站与独立本地读回。同 ID 重放不重发。直接按[filehelper文字契约](references/capabilities/wechat/send-filehelper-text.md)或[通用发送契约](references/capabilities/wechat/send-message.md)执行。`native send-status --request-id '原请求ID'`只读结果；状态未知保留原 ID，不能凭本地历史缺失重发。CLI 接受任意精确会话 ID，写入授权按下文判断；其他收件人的实际行为、其他个人身份媒体及 OneBot 事件待分别验收。已有读取仅覆盖本机同步历史，媒体仅标类型；企微消息缺项见[消息接入](references/workflows/messages.md)。
-- 个人微信图片：`python3 "$WX" native send --recipient '精确chat_id' --image '/路径/image.png' --request-id '唯一ID'`。PNG/JPEG、最多 10 MiB，普通 CLI→ClawBot 的单次入站、下载字节一致及 Linux UI 已真实验收；直接按[图片契约](references/capabilities/wechat/send-personal-image.md)执行。原生表情包继续开发，卡片见下文转发契约。
+- 个人微信图片：`python3 "$WX" native send --recipient '精确chat_id' --image '/路径/image.png' --request-id '唯一ID'`。PNG/JPEG、最多 10 MiB，普通 CLI→ClawBot 的单次入站、下载字节一致及 Linux UI 已真实验收；直接按[图片契约](references/capabilities/wechat/send-personal-image.md)执行。
 - 个人微信文件：`python3 "$WX" native send --recipient '精确chat_id' --file '/路径/文件.zip' --request-id '唯一ID'`。常规文件 1 字节到 10 MiB，保留原文件名；中文文件名TXT和ZIP已通过普通 CLI→ClawBot 单次入站、下载文件名/字节一致及 Linux UI 验收。按[文件契约](references/capabilities/wechat/send-personal-file.md)执行，同 ID 绑定文件名和内容，改名冲突拒绝。
+- 个人微信表情：`python3 "$WX" native send --recipient '精确chat_id' --sticker '/路径/sticker.gif' --request-id '唯一ID'`。动画GIF以原生47类型通过普通CLI发送至文件传输助手，XML的MD5/长度、服务器ID、Linux动画与防重通过，本人确认手机正常；按[表情契约](references/capabilities/wechat/send-personal-sticker.md)执行。ClawBot手机端不支持自定义表情，仅支持emoji；PNG/JPEG表情及其他对象仍待独立验收。
 - 个人微信转发与自定义 XML：`native forward --chat '精确源chat_id' --local-id 123 --database message/message_0.db --recipient '精确目标chat_id' --request-id '唯一ID'`，源 ID/分片来自 `native messages`。`native message-xml`读取对应原始 XML；`native send --xml '/路径/card.xml'`发送自定义卡片。按[转发/XML契约](references/capabilities/wechat/forward-card.md)直接调用。文章5、小程序33、修改标题/描述的XML已通过普通CLI真实发送、独立字段/服务器ID和Linux完整卡片显示；本人已确认手机显示/单次收件/点击；type36仍待实测。
 - 企微通知补充已暂缓：本人手机为原生鸿蒙，先前Android假设已更正；不再提示安装SmsForwarder或启动手机验收。现有`notifications list --account me --limit 20`与MCP `wecom_notifications`仅保留本机归档读取，真实手机投递未验证；旧方案见[Android通知](references/workflows/android-notifications.md)。OpenHarmony手机接入留待后续，当前不扩展手机工程。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定及真实文字、文件、图片、语音入站。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
 - ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。本地读回仅在用户要求验收或排查时可选使用；电脑微信离线不影响ClawBot经iLink独立收发，不因本地未读回阻断或判失败。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
 - ClawBot给本人发消息：`python3 "$WX" bot send --account me --text '消息文字' --request-id '本次唯一ID'`，已实测送达。本人已长期授权此通道读写；同一操作复用同一ID不会重发。仅向绑定本人发送，不是以个人微信身份给好友发消息；细节见[发送契约](references/capabilities/clawbot/send-text.md)。
-- ClawBot文件/图片：`bot send --file '/路径' --request-id '唯一ID'`，图片改用`--image`。已真实发送且本人确认文件能打开、图片显示正常；命中[媒体发送](references/capabilities/clawbot/send-media.md)直接调用。`bot updates`会私存媒体引用并给出`attachment_id`，可用`bot download --attachment-id '返回的ID'`下载；真实入站Excel、JPEG及语音已下载解密，Excel正文与图片已实际读取，语音仅确认SILK文件，转写未验收。使用updates的入站引用；出站附件引用回取曾失败。表情包、公众号分享卡片由本人确认当前客户端发不了，保留目标，不能把普通图片/链接替代算作完成。详见[媒体契约](references/capabilities/clawbot/media.md)。
+- ClawBot文件/图片：`bot send --file '/路径' --request-id '唯一ID'`，图片改用`--image`。已真实发送且本人确认文件能打开、图片显示正常；命中[媒体发送](references/capabilities/clawbot/send-media.md)直接调用。`bot updates`会私存媒体引用并给出`attachment_id`，可用`bot download --attachment-id '返回的ID'`下载；真实入站Excel、JPEG及语音已下载解密，Excel正文与图片已实际读取，语音仅确认SILK文件，转写未验收。使用updates的入站引用；出站附件引用回取曾失败。本人确认ClawBot手机端不支持自定义表情、仅支持emoji，公众号分享卡片通道亦未接通；个人身份GIF/卡片向文件传输助手的已验收能力不证明ClawBot富消息可用。详见[媒体契约](references/capabilities/clawbot/media.md)。
 - 已配置MCP时可直接用 `wechat_conversations`、`wechat_messages`、`clawbot_updates`、`clawbot_send`、`clawbot_send_media`、`clawbot_download`，与上述命令共用账号；安装和边界见 [MCP入口](references/workflows/mcp.md)。
 
 先区分发送身份：本人微信→ClawBot用`knowledge --query send-message --details`或直接读个人微信发送契约；ClawBot机器人→本人用`knowledge --query clawbot-send`。不能只因收件人名含ClawBot就改走机器人发送。
@@ -32,7 +33,9 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 新内部网页按 [业务 API 接入](references/workflows/embedded-web.md) 处理，确实只有小程序入口时才看 [小程序边界](references/workflows/mini-program.md)。缺项发现限于当前业务请求，不把查询扩大为通用客户端工程。
 
-单项新能力最多探索15分钟实际工作时间；切换路线不重置，等待本人认证不计入。到点报告证据、缺项和后续选项。界面仅用于必要登录和接口发现，日常能力通过 HTTP、已有命令或本机数据执行。长期路线图留在仓库 README，不自动串行推进。
+CLI 无法完成的任务，使用 `niri-computer-use` 操作现有微信窗口补齐；沿用当前发送授权，CLI 提交结果未知时先核对原请求和聊天记录，避免在窗口重复发送。
+
+单项新能力最多探索15分钟实际工作时间；切换路线不重置，等待本人认证不计入。到点报告证据、缺项和后续选项。日常优先通过 HTTP、已有命令或本机数据执行，界面用于必要登录、接口发现及 CLI 无法完成的任务。长期路线图留在仓库 README，不自动串行推进。
 
 当前开发例外：2026-09-30 本人明确授权本次个人微信 CLI 媒体开发放宽上述限时，继续到实测可用。该例外只覆盖本次媒体开发，不改变日常其他缺项探索的默认限时；不得以正常窗口发送或机器人媒体替代个人身份 CLI 验收。
 
@@ -54,7 +57,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 学校登录：`login --platform school --service 教务`（或预约），本人完成后 `login finish`；平台/服务保存在本机。`login --platform wechat` 默认检查现有本地读取，返回的 `NATIVE_READ_READY` 不证明客户端在线或远端登录有效；日常查询直接 native，不预查登录。确需本人扫码时使用显式 `--transport current-desktop`，只在登录任务需要时读 [认证入口](references/workflows/login.md)。企微原生入口仍未配置。
 
-旧客户端和当前窗口工具只作显式人工诊断入口；普通能力查询不召回其操作流程，不自动启用。用户明确要求使用现有 Linux 窗口时才读 [窗口读取](references/workflows/visible-wechat.md)，且只说明当前一屏覆盖范围。
+旧客户端只作显式人工诊断入口，不自动启用。用户要求操作现有 Linux 窗口或 CLI 无法完成时，使用 `niri-computer-use`；窗口读取细节按需见 [窗口读取](references/workflows/visible-wechat.md)，读取结论只覆盖实际查看的范围。
 
 ## 记录已打通的 API
 

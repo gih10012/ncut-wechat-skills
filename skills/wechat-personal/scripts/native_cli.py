@@ -22,6 +22,7 @@ def arguments(argv):
     parser.add_argument('--image')
     parser.add_argument('--file')
     parser.add_argument('--xml')
+    parser.add_argument('--sticker')
     parser.add_argument('--recipient', default='filehelper')
     args = parser.parse_args(argv[1:])
     if argv[0] == 'send-status':
@@ -29,8 +30,11 @@ def arguments(argv):
             from native_send_candidate import REQUEST_ID
             args.request_id = REQUEST_ID
         return ['send-status', '--request-id', args.request_id]
-    if args.request_id is None or sum(value is not None for value in (args.text, args.image, args.file, args.xml)) != 1:
-        raise ValueError('native send requires exactly one of --text/--image/--file/--xml and --request-id')
+    if args.request_id is None or sum(value is not None for value in (args.text, args.image, args.file, args.xml, args.sticker)) != 1:
+        raise ValueError('native send requires exactly one of --text/--image/--file/--xml/--sticker and --request-id')
+    if args.sticker is not None:
+        return ['send-sticker', '--recipient', args.recipient, '--file', args.sticker,
+                '--request-id', args.request_id]
     if args.xml is not None:
         return ['send-xml', '--recipient', args.recipient, '--file', args.xml,
                 '--request-id', args.request_id]

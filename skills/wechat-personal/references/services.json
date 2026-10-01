@@ -14,7 +14,7 @@
       "transport": "ilink_https_third_party_sdk",
       "auth": "Owner QR binding; isolated private bot credentials; actual API baseurl from login response",
       "status": "partially_verified",
-      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate; file/PNG upload and send accepted, owner confirmed file opens and image displays; inbound XLSX/JPEG/SILK downloads verified; XLSX parsed, image viewed; voice recognition unverified; owner reports native stickers/cards cannot be sent from their client; iLink operations independent of desktop",
+      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate; file/PNG upload and send accepted, owner confirmed file opens and image displays; inbound XLSX/JPEG/SILK downloads verified; XLSX parsed, image viewed; voice recognition unverified; owner confirms ClawBot phone client does not support custom stickers, only emoji; personal CLI type47 obtained a server ID/local XML but no corresponding iLink item and does not prove ClawBot sticker usability; native share cards still not connected; iLink operations independent of desktop",
       "capabilities": {
         "login": "runtime_verified",
         "updates": "runtime_verified",
@@ -50,7 +50,7 @@
       "entry": null,
       "transport": "local_sqlcipher_readonly_and_installed_linux_cli_queued_send",
       "status": "partially_verified",
-      "verified_scope": "Linux local conversations and synced recent messages; one-time CAP_SYS_PTRACE system service deployment and ordinary installed CLI filehelper text verified on 2026-09-30 with one complete phone delivery, exact local database readback and Linux UI confirmation; personal CLI to ClawBot text received exactly over iLink, bot reply read back once in Linux local database; same-ID replay did not resubmit, conflicts rejected; CLI accepts any exact native conversation ID, write authorization belongs to calling skill/owner; ordinary CLI PNG/JPEG to ClawBot verified 2026-10-01 by single independent iLink inbound download, exact input bytes and Linux UI; PNG request replay kept artifacts unchanged and conflicting text operation rejected; ordinary CLI Chinese filename TXT and ZIP to ClawBot verified by single iLink inbound, exact download bytes/name and Linux UI; same-ID file replay kept native artifacts unchanged and changed filename/text operations rejected; ordinary installed CLI article5/mini-program33 forwarding and custom XML to filehelper verified by semantic XML readback, nonzero server IDs, full Linux card rendering and unchanged replay artifacts; owner confirmed single complete card phone receipts and opening through ClawBot; type36, other recipients, emoticons, OneBot events, fresh service key capture and long-term stability remain unverified; old OneBot HTTP fresh send verified 2026-09-21, new installed-CLI HTTP bridge verified by existing-request replay only",
+      "verified_scope": "Linux local conversations and synced recent messages; one-time CAP_SYS_PTRACE system service deployment and ordinary installed CLI filehelper text verified on 2026-09-30 with one complete phone delivery, exact local database readback and Linux UI confirmation; personal CLI to ClawBot text received exactly over iLink, bot reply read back once in Linux local database; same-ID replay did not resubmit, conflicts rejected; CLI accepts any exact native conversation ID, write authorization belongs to calling skill/owner; ordinary CLI PNG/JPEG to ClawBot verified 2026-10-01 by single independent iLink inbound download, exact input bytes and Linux UI; PNG request replay kept artifacts unchanged and conflicting text operation rejected; ordinary CLI Chinese filename TXT and ZIP to ClawBot verified by single iLink inbound, exact download bytes/name and Linux UI; same-ID file replay kept native artifacts unchanged and changed filename/text operations rejected; ordinary installed CLI article5/mini-program33 forwarding and custom XML to filehelper verified by semantic XML readback, nonzero server IDs, full Linux card rendering and unchanged replay artifacts; owner confirmed single complete card phone receipts and opening through ClawBot; ordinary CLI animated GIF native type47 to filehelper verified by matching XML MD5/length, nonzero server ID, Linux animation, unchanged replay artifacts and owner phone confirmation; personal CLI type47 to ClawBot obtained a server ID and matching local XML but owner confirms ClawBot phone client does not support custom stickers, only emoji; PNG/JPEG stickers, type36, other recipients, OneBot events, fresh service key capture and long-term stability remain unverified; old OneBot HTTP fresh send verified 2026-09-21, new installed-CLI HTTP bridge verified by existing-request replay only",
       "capabilities": {
         "conversations": "runtime_verified",
         "read-messages": "runtime_verified",
@@ -59,7 +59,8 @@
         "send-personal-media": "partially_verified",
         "send-personal-image": "runtime_verified",
         "send-personal-file": "runtime_verified",
-        "forward-card": "runtime_verified"
+        "forward-card": "runtime_verified",
+        "send-personal-sticker": "runtime_verified"
       }
     },
     {

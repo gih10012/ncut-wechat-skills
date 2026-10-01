@@ -8,7 +8,7 @@
 
 Build skills that can independently discover and add capabilities in a fresh context, following the EaseCation web-api model. Existing examples are starting points, not a whitelist of tasks the agent can perform. Read the relevant SKILL.md first; do not ask the user to supply endpoints when they can be discovered from registered services, a service directory, an available client, or existing source evidence.
 
-Current priority: finish personal WeChat before resuming WeCom: ClawBot sends to its bound owner, then native personal-identity OneBot sends with real readback. The longer roadmap is in README.md; do not execute it automatically during an ordinary request. UI use is limited to necessary authentication and observing interfaces, not routine business execution.
+Current priority: finish personal WeChat before resuming WeCom: ClawBot sends to its bound owner, then native personal-identity OneBot sends with real readback. The longer roadmap is in README.md; do not execute it automatically during an ordinary request. Prefer verified CLI/API operations; the owner also authorizes computer-use in the existing WeChat window when the CLI cannot complete a task. Preserve send authorization and resolve uncertain submissions before any GUI resend.
 
 # Structure and execution
 
