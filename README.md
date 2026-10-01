@@ -17,7 +17,7 @@ python3 scripts/install.py
 对 Codex 直接说“查本周课表”“找今晚的空教室”“查羽毛球预约规则”，或给出一个新业务目标。没有现成子能力时，skill 应自行从服务注册表、目录、页面/客户端和已观察的请求继续探索，而非要求用户先提供 API。
 
 - [学校 skill](skills/ncut-web-api/SKILL.md)：课表、成绩、空教室、预约日历和规则已真实调用验证。
-- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索、个人身份经OneBot向文件传输助手发送文字、ClawBot第三方SDK文字/文件/图片收发、语音文件下载及公众号文字层已验证；普通CLI个人身份PNG/JPEG、中文文件名TXT与ZIP亦已通过ClawBot独立下载及Linux显示验收；其他收件人、原生表情包、卡片、OneBot事件及企微消息待验收。
+- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索、个人身份经OneBot向文件传输助手发送文字、ClawBot第三方SDK文字/文件/图片收发、语音文件下载及公众号文字层已验证；普通CLI个人身份PNG/JPEG、中文文件名TXT与ZIP亦已通过ClawBot独立下载及Linux显示验收；普通CLI公众号/小程序转发及自定义XML也已通过服务器回包/Linux卡片显示，手机点击待确认；其他收件人、原生表情包、OneBot事件及企微消息待验收。
 - 子能力存放在 `references/capabilities/`；必要的多请求编排存放在 `references/workflows/`。它们是可检索的子 skill，不为每个 endpoint 新建顶层 skill。
 
 ## 版本与验收
@@ -43,7 +43,7 @@ ClawBot安装、登录与有界读取见 [第三方SDK入口](skills/wechat-pers
 
 本人也允许后续部署一个与主 skill 解耦的轻量后台接收服务，可放在常开服务器或本机；独立说明见 [BACKGROUND-RECEIVER.md](BACKGROUND-RECEIVER.md)。常驻实现与部署暂缓，普通使用与安装 skill 不自动启动服务。
 
-最新追加的独立 Linux CLI 辅助服务已获一次安装、自启动及日常普通命令的授权；它与暂缓的后台接收器分别处理。[开源 CLI](https://github.com/gih10012/wechat-linux-cli)已作为开发预览发布，独立安装包真实读取及临时 Unix 服务检查通过；特权系统服务已部署并启用自启动，普通CLI文字、PNG/JPEG和中文文件名TXT/ZIP发送及Linux本地显示已分别验收，其他媒体继续开发。接续见[独立 CLI](skills/wechat-personal/references/workflows/native-cli.md)。
+最新追加的独立 Linux CLI 辅助服务已获一次安装、自启动及日常普通命令的授权；它与暂缓的后台接收器分别处理。[开源 CLI](https://github.com/gih10012/wechat-linux-cli)已作为开发预览发布，独立安装包真实读取及临时 Unix 服务检查通过；特权系统服务已部署并启用自启动，普通CLI文字、PNG/JPEG和中文文件名TXT/ZIP发送及Linux本地显示已分别验收，公众号/小程序转发与自定义XML的服务器回包/Linux卡片显示亦通过；手机点击和其他媒体继续验收。接续见[独立 CLI](skills/wechat-personal/references/workflows/native-cli.md)。
 
 ## v0 验收交接
 

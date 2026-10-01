@@ -10,6 +10,23 @@ import native_cli
 
 
 class InstalledBridgeTests(unittest.TestCase):
+    def test_native_xml_routes_once_and_forward_passes_precise_source(self):
+        with patch.object(native_cli.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            self.assertEqual(native_cli.main(['send', '--xml', '/owner/中文 $(literal).xml',
+                '--request-id', 'bridge-xml']), 0)
+            self.assertEqual(run.call_args.args[0], [str(native_cli.CLI), 'send-xml',
+                '--recipient', 'filehelper', '--file', '/owner/中文 $(literal).xml',
+                '--request-id', 'bridge-xml'])
+            with self.assertRaises(ValueError):
+                native_cli.main(['send', '--xml', '/owner/card.xml', '--file', '/owner/file',
+                                 '--request-id', 'mixed-xml'])
+            run.assert_called_once()
+            args = ['forward', '--chat', 'fixture@chatroom', '--local-id', '42',
+                    '--recipient', 'filehelper', '--request-id', 'bridge-forward']
+            self.assertEqual(native_cli.main(args), 0)
+            self.assertEqual(run.call_args.args[0], [str(native_cli.CLI), *args])
+
     def test_native_file_routes_once_and_rejects_mixed_content(self):
         with patch.object(native_cli.subprocess, 'run') as run:
             run.return_value.returncode = 0

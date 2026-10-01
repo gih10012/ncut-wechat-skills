@@ -111,6 +111,8 @@ if __name__ == '__main__':
             import native_cli
             if native_cli.available():
                 raise SystemExit(native_cli.main(sys.argv[2:]))
+            elif len(sys.argv) > 2 and (sys.argv[2] in ('forward', 'message-xml') or '--xml' in sys.argv[3:]):
+                raise ValueError('NATIVE_CLI_REQUIRED: install wechat-linux for card forwarding and XML')
             elif len(sys.argv) > 2 and sys.argv[2] in ('send', 'send-status'):
                 from native_send_candidate import main
                 operation = 'send-text' if sys.argv[2] == 'send' else 'status'
