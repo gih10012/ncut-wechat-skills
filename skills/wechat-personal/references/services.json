@@ -77,14 +77,15 @@
       "transport": "official_windows_client_in_private_wine_prefix_and_independent_native_cli",
       "workflow": "references/workflows/wecom-cli.md",
       "status": "partially_verified",
-      "verified_scope": "2026-10-01 owner authenticated official 5.0.11.6018 client in isolated Wine; ordinary installed CLI real private/group conversations, complete observed text, default20 scope-bound pagination/all locally synced history and exact new Chinese/newline/emoji GUI message independent readback verified; DB/WAL ciphertext checksums and full SQLite integrity verified; no sudo or recurring key scan for normal reads. Media raw fields/references only; installed ordinary native CLI external text sends and authorized personal WeChat/WeCom bidirectional exact-once Chinese/newline/emoji readback with nonzero server IDs, both UIs, same-ID no-resubmission and payload-conflict refusal verified; media sends/downloads, arbitrary groups, school workbench, logged-in restarts and residency remain unverified; no autostart; business web sessions independent.",
+      "verified_scope": "2026-10-01 owner authenticated official 5.0.11.6018 client in isolated Wine; ordinary installed CLI real private/group conversations, complete observed text, default20 scope-bound pagination/all locally synced history and exact new Chinese/newline/emoji independent readback verified; DB/WAL ciphertext checksums and full SQLite integrity verified; no sudo or recurring key scan for normal reads. Installed ordinary native CLI authorized external text and personal WeChat/WeCom bidirectional exact-once Chinese/newline/emoji readback with nonzero server IDs, both UIs, same-ID no-resubmission and payload-conflict refusal verified. Three normal client restarts restored the configured account, reused key/request records and passed new-process construct preflights; new native text after the third restart independently received once with nonzero server ID, replay did not duplicate it, monitor off/no selected chat. Two timed restarts reached native preflight in about3.6 seconds with an existing Wine runtime; short client-group resource samples only, not whole-Wine cold-start or long-duration stability. External WeChat type101 PNG received/displayed in WeCom and exported through the installed CLI from its full original cache with exact input bytes, MD5/size/path checks and no thumbnail substitution verified; no remote fetching. Other media raw fields/references only; native media sends, uncached/other-format downloads, arbitrary group sends, school workbench, offline gaps, long-duration stability and residency remain unverified; no autostart; business web sessions independent.",
       "capabilities": {
         "conversations": "runtime_verified",
         "read-messages": "runtime_verified",
         "send-message": "partially_verified",
-        "media-download": "not_connected",
+        "media-download": "partially_verified",
         "school-workbench": "not_connected",
-        "send-text": "runtime_verified"
+        "send-text": "runtime_verified",
+        "media-export": "runtime_verified"
       }
     }
   ]
