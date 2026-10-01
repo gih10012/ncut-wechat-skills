@@ -18,4 +18,4 @@ note: "先用wecom conversations定位；默认20条分页，--cursor续页，--
 
 按`send_time,message_id`倒序默认20条；`next_cursor`绑定账号/会话并保留首次查询的最大本地ID，续页排除随后插入的消息。`--all`返回此会话全部已同步行，云端未同步数据不在范围内；跨库快照不是原子事务。返回服务器/发送人ID为字符串，保留64位精度。已观测文字字段保留全部空白、换行和emoji；未知类型返回完整原始二进制base64与字段，不把猜测文本当作全文。媒体引用尚未下载或识别。
 
-`ACCOUNT_NOT_CONFIGURED`：按工作流核对已有本机配置，不猜账号目录；`DATABASE_KEY_MISMATCH`：核对源库与私有密钥；`DATABASE_CHANGED_DURING_SNAPSHOT`：读取期间实际变化，稍后重新读取；WAL校验或不完整错误：保留证据并局部排查，不删除WAL或返回忽略它的旧消息。正常读取没有发送副作用。CLI发送尚未接通，不能将GUI发现阶段的发送记录当作CLI发送验收。
+`ACCOUNT_NOT_CONFIGURED`：按工作流核对已有本机配置，不猜账号目录；`DATABASE_KEY_MISMATCH`：核对源库与私有密钥；`DATABASE_CHANGED_DURING_SNAPSHOT`：读取期间实际变化，稍后重新读取；WAL校验或不完整错误：保留证据并局部排查，不删除WAL或返回忽略它的旧消息。正常读取没有发送副作用。普通CLI原生文字发送已分别验收，按[文字发送契约](send-text.md)执行；媒体尚未接通。原生文件传输助手ID是`FILEASSIST`，内部与自己聊天的`S:自己的ID_自己的ID`是另一会话，不互相改写。

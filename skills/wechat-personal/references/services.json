@@ -74,16 +74,17 @@
       ],
       "origins": [],
       "entry": null,
-      "transport": "official_windows_client_in_private_wine_prefix_and_independent_readonly_cli",
+      "transport": "official_windows_client_in_private_wine_prefix_and_independent_native_cli",
       "workflow": "references/workflows/wecom-cli.md",
       "status": "partially_verified",
-      "verified_scope": "2026-10-01 owner authenticated official 5.0.11.6018 client in isolated Wine; ordinary installed CLI real private/group conversations, complete observed text, default20 scope-bound pagination/all locally synced history and exact new Chinese/newline/emoji GUI message independent readback verified; DB/WAL ciphertext checksums and full SQLite integrity verified; no sudo or recurring key scan for normal reads. Media raw fields/references only; native CLI sends, media downloads, school workbench, logged-in restarts and residency remain unverified; no autostart; business web sessions independent.",
+      "verified_scope": "2026-10-01 owner authenticated official 5.0.11.6018 client in isolated Wine; ordinary installed CLI real private/group conversations, complete observed text, default20 scope-bound pagination/all locally synced history and exact new Chinese/newline/emoji GUI message independent readback verified; DB/WAL ciphertext checksums and full SQLite integrity verified; no sudo or recurring key scan for normal reads. Media raw fields/references only; installed ordinary native CLI external text sends and authorized personal WeChat/WeCom bidirectional exact-once Chinese/newline/emoji readback with nonzero server IDs, both UIs, same-ID no-resubmission and payload-conflict refusal verified; media sends/downloads, arbitrary groups, school workbench, logged-in restarts and residency remain unverified; no autostart; business web sessions independent.",
       "capabilities": {
         "conversations": "runtime_verified",
         "read-messages": "runtime_verified",
-        "send-message": "not_connected",
+        "send-message": "partially_verified",
         "media-download": "not_connected",
-        "school-workbench": "not_connected"
+        "school-workbench": "not_connected",
+        "send-text": "runtime_verified"
       }
     }
   ]
