@@ -74,9 +74,10 @@
       ],
       "origins": [],
       "entry": null,
-      "transport": "no verified personal message API",
+      "transport": "experimental_official_windows_client_in_private_wine_prefix",
+      "workflow": "references/workflows/wecom-cli.md",
       "status": "not_connected",
-      "verified_scope": "native message API unverified; business web sessions are independent"
+      "verified_scope": "Owner-approved free Wine and independent wecom-linux CLI development; official 5.0.11.6018 client installed separately, ordinary client status/start and pre-login GUI observed, read-only process access verified without sudo; login, real personal messages, sends, school workbench, logged-in restarts and residency remain unverified; independent C cipher fixture is decoder evidence only; no autostart; business web sessions are independent"
     }
   ]
 }

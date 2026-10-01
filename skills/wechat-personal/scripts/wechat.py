@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import urllib.parse as up
@@ -104,6 +105,39 @@ def client(argv):
     access.emit(value)
 
 
+def knowledge(argv):
+    parser = argparse.ArgumentParser(prog='wechat.py knowledge')
+    parser.add_argument('--query', required=True)
+    parser.add_argument('--details', action='store_true')
+    args = parser.parse_args(argv)
+    result = access.search(ROOT, args.query, details=args.details)
+    if result.get('next'):
+        result['next'] = ('Read the matched service workflow and follow SKILL.md authorization. '
+                          'Do not infer availability from a match. Daily new-capability exploration '
+                          'is limited to 15 minutes except owner-approved development. If the CLI '
+                          'cannot complete the task, use computer-use within the existing authorization; '
+                          'check an unknown prior submission before any GUI resend.')
+    access.emit(result)
+
+
+def wecom(argv):
+    executable = shutil.which('wecom-linux')
+    if not executable:
+        access.emit({'ok':False, 'code':'WECOM_CLI_NOT_INSTALLED'})
+        return 1
+    try:
+        result = subprocess.run([executable, *argv], capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired:
+        access.emit({'ok':False, 'code':'WECOM_CLI_TIMEOUT', 'automatic_retry':False})
+        return 1
+    try:
+        value = json.loads(result.stdout)
+    except ValueError:
+        value = {'ok':False, 'code':'WECOM_CLI_BAD_RESPONSE', 'exit_code':result.returncode}
+    access.emit(value)
+    return result.returncode if result.returncode else (0 if value.get('ok') else 1)
+
+
 if __name__ == '__main__':
     try:
         if len(sys.argv)>1 and sys.argv[1]=='article': article(sys.argv[2:])
@@ -137,6 +171,9 @@ if __name__ == '__main__':
             from personal_login import main
             main(sys.argv[2:], access)
         elif len(sys.argv)>1 and sys.argv[1]=='client': client(sys.argv[2:])
+        elif len(sys.argv)>1 and sys.argv[1]=='knowledge': knowledge(sys.argv[2:])
+        elif len(sys.argv)>1 and sys.argv[1]=='wecom':
+            raise SystemExit(wecom(sys.argv[2:]))
         elif len(sys.argv)>1 and sys.argv[1]=='desktop':
             from desktop import main
             access.emit(main(sys.argv[2:]))
