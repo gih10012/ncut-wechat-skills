@@ -184,10 +184,12 @@ class AccessTests(unittest.TestCase):
         self.assertEqual(result['matches'][0]['command'][:2], ['native','messages'])
         other=search(root, '查看企业微信消息')
         self.assertTrue(other['matches'])
-        self.assertTrue(all(m['service']=='wecom' and m['status']=='not_connected' for m in other['matches']))
+        self.assertTrue(all(m['service']=='wecom' and m['status']=='runtime_verified' for m in other['matches']))
+        self.assertEqual(other['matches'][0]['command'][:2], ['wecom','messages'])
+        self.assertTrue(all(m.get('transport') != 'manual-ui' for m in other['matches']))
         self.assertIsNone(result['next'])
-        self.assertIsNotNone(other['next'])
-        self.assertEqual(other['service_candidates'][0]['id'], 'wecom')
+        self.assertIsNone(other['next'])
+        self.assertEqual(other['service_candidates'], [])
 
     def test_partially_verified_send_keeps_discovery_route(self):
         root=SCRIPTS.parent.parent/'wechat-personal'
