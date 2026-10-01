@@ -11,6 +11,7 @@ wechat-linux messages --chat '精确 chat_id' --limit 20
 wechat-linux service-status
 wechat-linux send-text --recipient '精确 chat_id' --text '消息文字' --request-id '本次唯一ID'
 wechat-linux send-image --recipient '精确 chat_id' --file '/路径/image.png' --request-id '图片唯一ID'
+wechat-linux send-file --recipient '精确 chat_id' --file '/路径/文件.zip' --request-id '文件唯一ID'
 wechat-linux send-status --request-id '原请求ID'
 wechat-linux inspect-pending
 ```
@@ -50,4 +51,4 @@ wechat-linux inspect-pending
 
 `scripts/native_highlevel_probe.py` 是有界的高层只读观察工具，曾串起正常窗口文字请求→初始入库→本地 ID→回包更新；它不等于主动发送预检。新增 `observe --kind image --seconds 60` 区分公共请求字段和数据库消息类型，严格过滤实际观察到的图片类。两轮真实 UI 图片观察安全脱离，四个断点各命中一次，但旧过滤没有关联事件；已据真实请求类/字段值修正。合成 GDB 的字段区分、关联、无正文读取、SIGPIPE 处理及脱离通过，修正后的真实关联仍未验收；图片主动发送随后已通过普通 CLI 验收。它只读取生命周期字段，不调用发送函数；附加权限仍需本机 sudo。媒体继续开发需验证专用请求、上传及对象生命周期，不能仅修改文字请求类型。私有接续在本机 `next-actions.md`、`CONTEXT-PROOF-20260930.md` 和原生产物中；账号、正文、捕获与任务 ID 不发布。
 
-2026-10-01 图片入口已接入普通 CLI 并真实部署。PNG/JPEG→ClawBot 均经单次 iLink 入站下载、字节一致、Linux UI 显示及本地新增图片记录验收；图片同 ID 防重及跨动作冲突拒绝通过。详见[图片契约](../capabilities/wechat/send-personal-image.md)。上文修正探针尚未重新做完整真实关联，仍是单独的观察器状态，不能据此否定后续主动图片验收。文件、表情包及卡片仍需各自验收。
+2026-10-01 图片入口已接入普通 CLI 并真实部署。PNG/JPEG→ClawBot 均经单次 iLink 入站下载、字节一致、Linux UI 显示及本地新增图片记录验收；图片同 ID 防重及跨动作冲突拒绝通过。详见[图片契约](../capabilities/wechat/send-personal-image.md)。上文修正探针尚未重新做完整真实关联，仍是单独的观察器状态，不能据此否定后续主动图片验收。文件按[文件契约](../capabilities/wechat/send-personal-file.md)亦已通过普通 CLI→ClawBot 的中文文件名TXT、ZIP实测，原生表情包及卡片继续开发。

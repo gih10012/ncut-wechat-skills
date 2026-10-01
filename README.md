@@ -17,7 +17,7 @@ python3 scripts/install.py
 对 Codex 直接说“查本周课表”“找今晚的空教室”“查羽毛球预约规则”，或给出一个新业务目标。没有现成子能力时，skill 应自行从服务注册表、目录、页面/客户端和已观察的请求继续探索，而非要求用户先提供 API。
 
 - [学校 skill](skills/ncut-web-api/SKILL.md)：课表、成绩、空教室、预约日历和规则已真实调用验证。
-- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索、个人身份经OneBot向文件传输助手发送文字、ClawBot第三方SDK文字/文件/图片收发、语音文件下载及公众号文字层已验证；其他原生收件人、媒体、OneBot事件及企微消息待验收。
+- [微信／企微 skill](skills/wechat-personal/SKILL.md)：Linux 微信本地近期消息、会话检索、个人身份经OneBot向文件传输助手发送文字、ClawBot第三方SDK文字/文件/图片收发、语音文件下载及公众号文字层已验证；普通CLI个人身份PNG/JPEG、中文文件名TXT与ZIP亦已通过ClawBot独立下载及Linux显示验收；其他收件人、原生表情包、卡片、OneBot事件及企微消息待验收。
 - 子能力存放在 `references/capabilities/`；必要的多请求编排存放在 `references/workflows/`。它们是可检索的子 skill，不为每个 endpoint 新建顶层 skill。
 
 ## 版本与验收
@@ -35,7 +35,7 @@ v0 示例：[服务收藏](skills/ncut-web-api/references/capabilities/hall/serv
 
 v1 读取路径：[现有 Linux 微信的一次性密钥读取](skills/wechat-personal/references/workflows/native-linux.md)。该工具需要本人本机授权，只读本人微信进程，匹配数据库 HMAC 后私存密钥；不重登录或改全局 ptrace 设置。16个数据库密钥和实际近期消息读取已验证；后续 `native conversations` / `native messages` 直接调用，普通读取不再需要 sudo。读取仅覆盖本机已同步数据。原生发送的已验证调用见[filehelper文字契约](skills/wechat-personal/references/capabilities/wechat/send-filehelper-text.md)：参数化后端已通过OneBot真实发送，独立CLI写入未在本轮验收；Linux本地回写尚未接入，不据历史缺失判投递失败。其余范围见[通用发送契约](skills/wechat-personal/references/capabilities/wechat/send-message.md)。原生读取另需 Python 3.11+、pycryptodome 和系统 libzstd，见该流程。
 
-当前先微信、后企微。WorkPro留待微信完成后评估，采用条件为实际可用、稳定且免费或价格低，当前尚未验证。按本人授权推进 v1：个人微信优先普通好友/群聊的OneBot收发，ClawBot仅补充；企微历史与新消息均保留，先尝试后续新消息，且不依赖Windows常驻。新能力优先查匹配的 GitHub 实现并核对实际接口，累计探索上限15分钟；换路线不重置，等待本人认证不计入。界面仅用于必要登录和接口发现。未成熟的窗口发送原型保留在本机，不作为正式能力。
+当前先微信、后企微。WorkPro留待微信完成后评估，采用条件为实际可用、稳定且免费或价格低，当前尚未验证。按本人授权推进 v1：个人微信优先普通好友/群聊的OneBot收发，ClawBot仅补充；企微历史与新消息均保留，先尝试后续新消息，且不依赖Windows常驻。新能力优先查匹配的 GitHub 实现并核对实际接口，日常缺项累计探索上限15分钟；换路线不重置，等待本人认证不计入。本次个人微信CLI媒体开发已按本人明确授权放宽限时，继续到实测可用。界面仅用于必要登录和接口发现。未成熟的窗口发送原型保留在本机，不作为正式能力。
 
 ClawBot安装、登录与有界读取见 [第三方SDK入口](skills/wechat-personal/references/workflows/clawbot.md)；按需启动的stdio MCP见 [MCP入口](skills/wechat-personal/references/workflows/mcp.md)。机器人通道不会自动取得本人其他聊天；个人微信读取继续复用已登录的Linux客户端，不另开设备会话。
 
@@ -43,7 +43,7 @@ ClawBot安装、登录与有界读取见 [第三方SDK入口](skills/wechat-pers
 
 本人也允许后续部署一个与主 skill 解耦的轻量后台接收服务，可放在常开服务器或本机；独立说明见 [BACKGROUND-RECEIVER.md](BACKGROUND-RECEIVER.md)。常驻实现与部署暂缓，普通使用与安装 skill 不自动启动服务。
 
-最新追加的独立 Linux CLI 辅助服务已获一次安装、自启动及日常普通命令的授权；它与暂缓的后台接收器分别处理。[开源 CLI](https://github.com/gih10012/wechat-linux-cli)已作为开发预览发布，独立安装包真实读取及临时 Unix 服务检查通过；特权系统服务部署、发送后的本地消息显示修复仍在进行。接续见[独立 CLI](skills/wechat-personal/references/workflows/native-cli.md)。
+最新追加的独立 Linux CLI 辅助服务已获一次安装、自启动及日常普通命令的授权；它与暂缓的后台接收器分别处理。[开源 CLI](https://github.com/gih10012/wechat-linux-cli)已作为开发预览发布，独立安装包真实读取及临时 Unix 服务检查通过；特权系统服务已部署并启用自启动，普通CLI文字、PNG/JPEG和中文文件名TXT/ZIP发送及Linux本地显示已分别验收，其他媒体继续开发。接续见[独立 CLI](skills/wechat-personal/references/workflows/native-cli.md)。
 
 ## v0 验收交接
 
