@@ -11,7 +11,7 @@ note: "确认接通和参与人授权后播放；audio本身不发起/接听通�
 
 # 已接通通话的音频
 
-先按[通话契约](voice-call.md)核对参与人授权与连接状态。当前呼叫/接听/挂断用computer-use；只有输入流、等待接听或“正在建立连接”不足，需连接计时或对端确认。CLI不把任意音频流当作已接通通话。
+先按[通话契约](voice-call.md)核对参与人授权与连接状态。个人微信可按[私聊CLI控制](private-call-control.md)发起/挂断，`call play`会先检查该通话连接再播放；接听、企微呼叫控制仍用computer-use。只有输入流、等待接听或“正在建立连接”不足，需连接计时或对端确认。audio基础命令不把任意音频流当作已接通通话。
 
 个人端用`python3 "$WX" native audio ...`，企微端用`python3 "$WX" wecom audio ...`。桥接普通安装CLI，无需sudo；PID和`/proc/PID/stat`启动时间来自本轮真实客户端。
 
