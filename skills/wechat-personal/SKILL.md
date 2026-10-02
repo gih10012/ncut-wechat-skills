@@ -1,6 +1,6 @@
 ---
 name: wechat-personal
-description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、普通 CLI 个人身份文字、PNG/JPEG、中文文件名TXT/ZIP、公众号文章/小程序转发、自定义XML及动画GIF原生表情；卡片与GIF在文件传输助手有本人手机确认。ClawBot经iLink独立文字/文件/图片收发及语音下载已验证，其手机端不支持自定义表情。朋友圈动态/指定人完整缓存读取、分页和全部已加载历史已验证。企微 Wine 独立 CLI 已验证真实私聊/群聊读取、分页、已同步历史及新文字读回；企微普通CLI原生文字与本人授权的微信对应会话双向收发、防重已验证；企微三次正常重启及重启后新文字送达已验证；企微普通CLI原生PNG/JPEG、中文文件名TXT/ZIP发送及独立微信接收已验证，type101 PNG/type14 PNG与JPEG缓存原图导出已验证；动画GIF原生表情及独立微信type47收件、两端动画与防重已验证；公众号文章/小程序原生转发与修改标题描述的自定义XML已独立收件验收；小程序缩略图与点击、未缓存媒体下载、协议链接的外部浏览器转换/中继及长期稳定性待验收。
+description: 探索、验证并复用本人微信和企业微信的消息、公众号及内嵌业务能力；按需发现新 API 并生成子能力。已验证 Linux 微信本地消息、普通 CLI 个人身份文字、PNG/JPEG、中文文件名TXT/ZIP、公众号文章/小程序转发、自定义XML及动画GIF原生表情；卡片与GIF在文件传输助手有本人手机确认。ClawBot经iLink独立文字/文件/图片收发及语音下载已验证，其手机端不支持自定义表情。朋友圈动态/指定人完整缓存读取、分页和全部已加载历史已验证。企微 Wine 独立 CLI 已验证真实私聊/群聊读取、分页、已同步历史及新文字读回；企微普通CLI原生文字与本人授权的微信对应会话双向收发、防重已验证；企微三次正常重启及重启后新文字送达已验证；企微普通CLI原生PNG/JPEG、中文文件名TXT/ZIP发送及独立微信接收已验证，type101 PNG/type14 PNG与JPEG缓存原图导出已验证；动画GIF原生表情及独立微信type47收件、两端动画与防重已验证；公众号文章/小程序原生转发与修改标题描述的自定义XML已独立收件验收；通用协议链接解析/只读中继已实测；小程序缩略图与点击、未缓存媒体下载、客户端认证/JS SDK网页及长期稳定性待验收。
 ---
 
 # 微信 / 企微信息入口
@@ -12,6 +12,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 ## 最短调用
 
 - 给出公众号链接：`python3 "$WX" article --url '真实链接' --max-chars 6000`。结果仅覆盖页面文字层，图片正文按需读取。
+- 协议链接转浏览器：`python3 "$WX" native web resolve --url '真实链接'`（企微用`wecom web`）；明确HTTP页用`web open --browser chrome/edge`，已观察HTTP来源用`web bind`精确绑定后`web relay --seconds 300`临时只读中继。两端安装CLI、真实群帖正文/评论及Chrome/Edge显示已实测；新不透明小程序票据、OAuth和JS SDK依赖分别处理，按[协议网页契约](references/capabilities/wechat/protocol-web.md)执行，不能把启动页/HTTP200当正文。学校应用复用此入口或computer-use，不加学校专用CLI适配。
 - 学校信息：直接使用同套 [ncut-web-api](../ncut-web-api/SKILL.md) 的课表、场地余量或对应接口；不先启动微信/企微。
 - 其他业务：`python3 "$WX" knowledge --query '具体需求'` 返回命中的命令、接口、状态和契约路径，默认不展开子流程。`command` 是脚本参数数组，按用户输入替换占位符。`runtime_verified` 命中直接按对应命令/请求执行，正常结果即结束；未验证条目按 `next` 做局部发现，不把检索命中当作可用。细节仅按能力 ID 加 `--details` 或读对应文件。
 - 微信群消息/私聊：`python3 "$WX" native conversations --account me --query '群名或联系人' --limit 5` 定位，再用 `native messages --account me --chat '返回的chat_id' --limit 20`。唯一完整名称也可直接作 `--chat`。省略查询词可列最近会话，`--unread` 只列有未读的会话。复用现有 Linux 数据与私有密钥，无需浏览器、sudo 或再次登录。仅首次缺密钥/确实失效时看 [本机接入](references/workflows/native-linux.md)。正常查询不重跑密钥捕获。
@@ -22,7 +23,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 - 个人微信表情：`python3 "$WX" native send --recipient '精确chat_id' --sticker '/路径/sticker.gif' --request-id '唯一ID'`。动画GIF以原生47类型通过普通CLI发送至文件传输助手，XML的MD5/长度、服务器ID、Linux动画与防重通过，本人确认手机正常；按[表情契约](references/capabilities/wechat/send-personal-sticker.md)执行。ClawBot手机端不支持自定义表情，仅支持emoji；PNG/JPEG表情及其他对象仍待独立验收。
 - 个人微信转发与自定义 XML：`native forward --chat '精确源chat_id' --local-id 123 --database message/message_0.db --recipient '精确目标chat_id' --request-id '唯一ID'`，源 ID/分片来自 `native messages`。`native message-xml`读取对应原始 XML；`native send --xml '/路径/card.xml'`发送自定义卡片。按[转发/XML契约](references/capabilities/wechat/forward-card.md)直接调用。文章5、小程序33、修改标题/描述的XML已通过普通CLI真实发送、独立字段/服务器ID和Linux完整卡片显示；本人已确认手机显示/单次收件/点击；type36仍待实测。
 - 企微通知补充已暂缓：本人手机为原生鸿蒙，先前Android假设已更正；不再提示安装SmsForwarder或启动手机验收。现有`notifications list --account me --limit 20`与MCP `wecom_notifications`仅保留本机归档读取，真实手机投递未验证；旧方案见[Android通知](references/workflows/android-notifications.md)。OpenHarmony手机接入留待后续，当前不扩展手机工程。
-- 企业微信读取：`python3 "$WX" wecom conversations --account me --query '会话名称' --limit 20`定位，再用`wecom messages --account me --chat '精确chat_id或唯一完整名称' --limit 20`读取。默认20条分页，返回`next_cursor`供`--cursor`续页；`--all`读取指定会话全部已同步历史。本人已登录独立 Wine 客户端，真实私聊/群聊、完整文字和新消息独立读回已验证；日常复用已安装CLI和私有密钥，不需sudo或重新捕获。媒体保留完整二进制字段和引用，未下载。`wecom status`检查配置，`wecom client start`手动启动；不创建自启动。本人身份普通 CLI 文字发送及与本人授权的微信对应会话双向收发已通过；用 `wecom send-text --account me --chat '精确chat_id' --text '文字' --request-id '唯一ID'`，未知结果只查 `wecom send-status --request-id '原ID'`，同 ID 不重发；先按下文检查发送授权，再按[企微文字契约](references/capabilities/wecom/send-text.md)调用。图片/文件/表情发送见下条；完整小程序缩略图/点击、协议链接的外部浏览器转换/中继与长期稳定性仍待验收，按[企微 CLI](references/workflows/wecom-cli.md)继续当前已授权开发。
+- 企业微信读取：`python3 "$WX" wecom conversations --account me --query '会话名称' --limit 20`定位，再用`wecom messages --account me --chat '精确chat_id或唯一完整名称' --limit 20`读取。默认20条分页，返回`next_cursor`供`--cursor`续页；`--all`读取指定会话全部已同步历史。本人已登录独立 Wine 客户端，真实私聊/群聊、完整文字和新消息独立读回已验证；日常复用已安装CLI和私有密钥，不需sudo或重新捕获。媒体保留完整二进制字段和引用，未下载。`wecom status`检查配置，`wecom client start`手动启动；不创建自启动。本人身份普通 CLI 文字发送及与本人授权的微信对应会话双向收发已通过；用 `wecom send-text --account me --chat '精确chat_id' --text '文字' --request-id '唯一ID'`，未知结果只查 `wecom send-status --request-id '原ID'`，同 ID 不重发；先按下文检查发送授权，再按[企微文字契约](references/capabilities/wecom/send-text.md)调用。图片/文件/表情发送见下条；完整小程序缩略图/点击、客户端认证/JS SDK网页与长期稳定性仍待验收，按[企微 CLI](references/workflows/wecom-cli.md)继续当前已授权开发。
 - 企微图片发送：`python3 "$WX" wecom send-image --account me --chat '精确chat_id' --image '/路径/图片.jpg' --request-id '唯一ID'`。普通CLI原生PNG和中文文件名JPEG各一条被本人授权的微信对应会话收到，两端窗口完整显示、原图导出与输入一致、防重通过；按[企微图片契约](references/capabilities/wecom/send-image.md)直接调用。PNG/JPEG最多10 MiB，先检查发送授权，未知结果只查原ID。
 - 企微文件发送：`python3 "$WX" wecom send-file --account me --chat '精确chat_id' --file '/路径/中文文件.zip' --request-id '唯一ID'`。普通CLI中文文件名TXT/ZIP各一条被授权微信对应会话收到，下载字节与输入一致、两端文件卡片显示、防重及升级后旧图片请求重放通过；按[企微文件契约](references/capabilities/wecom/send-file.md)调用。常规文件1字节至10 MiB，保留原文件名与内容；不是自定义表情入口。
 - 企微自定义表情：`python3 "$WX" wecom send-sticker --account me --chat '精确chat_id' --sticker '/路径/表情.gif' --request-id '唯一ID'`。动画GIF经普通CLI原生input29发送，被本人授权微信对应会话以type47单次收到，XML的MD5/长度、两端动画、防重及升级后旧文件请求重放通过；按[企微表情契约](references/capabilities/wecom/send-sticker.md)调用。GIF最多10 MiB，先核对发送授权，未知结果只查原ID；其他格式及接收端缓存解密/原始导出仍待验收。
@@ -53,6 +54,8 @@ CLI 无法完成的任务，使用 `niri-computer-use` 操作现有微信窗口�
 个人微信的读取与写入后端接受任意精确会话 ID，不把发送授权写成 CLI 的收件人白名单。读取本人会话直接执行；写入（含 OneBot）由调用 agent 在本 skill 中核对授权：向文件传输助手或 ClawBot 已有本人长期授权，无需逐次询问；其他会话需要当前任务授权或适用的事先直接/间接授权，用户指定对象与内容、明确委托回复或已有工作流授权均按其实际范围执行，已有授权不重复询问。只有授权缺失或范围不清时才询问，不因未实测某目标而自动要求重新授权。技术验收另行记录，不把 filehelper/ClawBot 测试范围当成后端允许范围。ClawBot机器人身份通道的长期读写授权保持，仅向绑定本人发送；两种身份分别记录。
 
 当前企微开发按本人已批准的计划执行：必须免费，允许独立 Wine 环境；Android 容器和鸿蒙通知接入暂缓。先验证个人消息读取、发送，使用独立开源 `wecom-linux` CLI 并由本 skill 调用。先测资源和重启稳定性，再由本人决定是否常驻；当前不配置自启动。2026-10-02本人改为要求在微信/企微CLI中加入协议链接的通用转换或中继，供Edge/Chrome直接浏览；学校应用复用该入口或computer-use，不在CLI实现学校专用业务适配。普通成员没有企业会话存档权限，不把机器人身份或付费 WorkPro 当作个人消息后端。读取默认分页，全部历史只覆盖实际同步数据。
+
+2026-10-02本人追加私聊/群聊语音通话、选择邀请成员、接通后播放指定音频的CLI开发与本人账号互测授权；本人两端对应会话及两个明确的小号可用于当前验收，微信号和精确身份保存在私有授权记录，先核对身份，不扩大至其他同名人或学校群成员。尚未完成原生呼叫/接通/音频送达实测，不能把本机播放或窗口出现当成功；确实不可用时按已有授权发本人私信通知。
 
 本人另有明确长期授权的微信与企微对应会话对，允许双向读取、写入和收发验收，无需逐次确认。实际联系人名称、单位后缀、精确会话 ID 和授权来源保存在本机 `~/.local/state/ncut-wechat-skills/send-authorizations.json`；向其他对象写入前先检查适用的已有授权。首次绑定须核对对应身份及单位后缀，不能把授权扩大到其他同名联系人。授权记录与各端、各格式的实际验收分别维护，不在 CLI 后端增加收件人白名单。
 
