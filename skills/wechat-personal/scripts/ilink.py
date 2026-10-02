@@ -21,6 +21,83 @@ class BotError(ValueError):
     pass
 
 
+def remember_owner_context(state, messages, received_at):
+    """Keep the newest owner reply context, including messages beyond the output page."""
+    owner, bot = state.get('ilink_user_id'), state.get('ilink_bot_id')
+    eligible = [m for m in messages if owner and m.get('from_user_id') == owner
+                and m.get('to_user_id') == bot and not m.get('group_id')
+                and m.get('message_type') == 1 and isinstance(m.get('context_token'), str)
+                and m['context_token']]
+    if not eligible:
+        return False
+    def created(msg):
+        value = msg.get('create_time_ms')
+        return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
+    latest = max(enumerate(eligible), key=lambda pair: (created(pair[1]), pair[0]))[1]
+    current = state.get('owner_context', {})
+    previous_time = current.get('message_created_at_ms')
+    if (isinstance(previous_time, int) and not isinstance(previous_time, bool)
+            and previous_time > created(latest)):
+        return False
+    identity = hashlib.sha256(json.dumps(latest, sort_keys=True).encode()).hexdigest()
+    if current.get('user_id') == owner and current.get('message_fingerprint') == identity:
+        return False
+    context = {'user_id': owner, 'token': latest['context_token'], 'received_at': received_at,
+               'message_fingerprint': identity}
+    if created(latest):
+        context['message_created_at_ms'] = created(latest)
+    if isinstance(latest.get('message_id'), (str, int)):
+        context['message_id'] = latest['message_id']
+    state['owner_context'] = context
+    return True
+
+
+def local_status(state):
+    context = state.get('owner_context', {})
+    return {'ok': True, 'code': 'BOT_LOCAL_STATUS', 'network_request_performed': False,
+            'credentials_present': bool(state.get('bot_token')),
+            'remote_login_verified': False, 'desktop_required': False,
+            'reply_context_present': bool(context.get('token')),
+            'reply_context_owner_matches': bool(state.get('ilink_user_id'))
+                and context.get('user_id') == state.get('ilink_user_id'),
+            'reply_context_received_at': context.get('received_at'),
+            'reply_context_message_created_at_ms': context.get('message_created_at_ms'),
+            'reply_context_validity': 'unknown',
+            'last_update_poll': {k: v for k, v in state.get('last_update_poll', {}).items()
+                                 if k in ('checked_at', 'authenticated', 'message_count', 'reply_context_refreshed')}
+                                if isinstance(state.get('last_update_poll'), dict) else None,
+            'remaining_buffered': len(state.get('pending', [])),
+            'native_recovery_enabled': recovery_enabled(state)}
+
+
+def recovery_enabled(state):
+    config = state.get('native_recovery', {})
+    return (config.get('enabled') is True and config.get('ilink_user_id') == state.get('ilink_user_id')
+            and config.get('ilink_bot_id') == state.get('ilink_bot_id'))
+
+
+def poll_updates(access, root, state, timeout=40):
+    """Append validated input atomically; recovery must not consume the caller's inbox."""
+    value = request(state['baseurl'], 'getupdates', token=state['bot_token'],
+                    body={'get_updates_buf': state.get('cursor', '')}, timeout=timeout)
+    messages = value.get('msgs')
+    if (value.get('ret') not in (None, 0) or value.get('errcode') not in (None, 0)
+            or not isinstance(messages, list) or not all(isinstance(m, dict) for m in messages)
+            or not isinstance(value.get('get_updates_buf'), str)):
+        raise BotError('BOT_INVALID_UPDATES')
+    for message in messages:
+        public_message(message)
+    checked_at = access.now()
+    refreshed = remember_owner_context(state, messages, checked_at)
+    if value['get_updates_buf']:
+        state['cursor'] = value['get_updates_buf']
+    state['pending'] = state.get('pending', []) + messages
+    state['last_update_poll'] = {'checked_at': checked_at, 'authenticated': True,
+                                 'message_count': len(messages), 'reply_context_refreshed': refreshed}
+    save(access, root / 'account.json', state)
+    return messages
+
+
 def api_origin(value):
     p = urllib.parse.urlsplit(value)
     if (p.scheme != 'https' or not p.hostname or not p.hostname.endswith('.weixin.qq.com')
@@ -72,7 +149,8 @@ def request(base, endpoint, *, body=None, token=None, timeout=15):
     if -14 in errors:
         raise BotError('BOT_AUTH_REQUIRED')
     if any(code not in (None, 0) for code in errors):
-        raise BotError('BOT_BUSINESS_ERROR')
+        code = next(code for code in errors if code not in (None, 0))
+        raise BotError('BOT_BUSINESS_ERROR_' + str(code))
     return value
 
 
@@ -173,7 +251,9 @@ def send_owner(args, access, root, state):
     save(access, attempt_path, attempt)
     result = {'request_id': args.request_id, 'client_id': client_id,
               'scope': 'ClawBot to bound owner only', 'delivery_verified': False,
-              'automatic_retry': False, 'desktop_required': False}
+              'automatic_retry': False, 'desktop_required': False,
+              'reply_context_used': 'context_token' in msg,
+              'reply_context_received_at': context.get('received_at') if 'context_token' in msg else None}
     submitted = False
     try:
         if data is not None:
@@ -191,8 +271,49 @@ def send_owner(args, access, root, state):
         unknown = submitted and (str(exc) in ('BOT_NETWORK_TIMEOUT', 'BOT_NETWORK_ERROR', 'BOT_INVALID_RESPONSE') or str(exc).startswith('BOT_HTTP_5'))
         result.update(ok=False, code=str(exc), api_accepted=None if unknown else False,
                       outcome_unknown=unknown, message_submission_attempted=submitted)
+        if str(exc) == 'BOT_BUSINESS_ERROR_-2':
+            result.update(possible_cause='reply_context_or_proactive_window_rejected', cause_verified=False,
+                          recovery='Use configured personal-CLI recovery; only authentication errors require login. Keep the rejected attempt.')
     attempt['result'] = result
     save(access, attempt_path, attempt)
+    # Only a determinate context rejection can trigger one recovery. A timeout,
+    # crash, auth error or media-upload error never resubmits the original message.
+    if submitted and result.get('code') == 'BOT_BUSINESS_ERROR_-2' and recovery_enabled(state):
+        from ilink_recovery import renew_context
+        recovery_id = 'auto-' + hashlib.sha256(args.request_id.encode()).hexdigest()[:40]
+        attempt['attempts'] = [dict(result)]
+        attempt['phase'] = 'recovering'
+        save(access, attempt_path, attempt)
+        renewed = renew_context(access, root, state, recovery_id)
+        result['native_recovery'] = renewed
+        if renewed.get('ok') and renewed.get('fresh_for_current_send') is True and not renewed.get('replayed'):
+            # Reserve the second submission before entering the API. If this
+            # process dies here, replay returns unknown and cannot send again.
+            msg['client_id'] = 'ncut-' + uuid.uuid4().hex
+            msg['context_token'] = state['owner_context']['token']
+            result = {**result, 'ok': False, 'code': 'BOT_SEND_OUTCOME_UNKNOWN',
+                      'api_accepted': None, 'outcome_unknown': True,
+                      'client_id': msg['client_id'], 'reply_context_used': True,
+                      'reply_context_received_at': state['owner_context'].get('received_at'),
+                      'submission_count': 2}
+            result.pop('possible_cause', None)
+            result.pop('cause_verified', None)
+            result.pop('recovery', None)
+            attempt.update(client_id=msg['client_id'], phase='resubmitting', result=result)
+            save(access, attempt_path, attempt)
+            try:
+                value = request(state['baseurl'], 'sendmessage', token=state['bot_token'], body={'msg': msg})
+                result.update(ok=True, code='BOT_SEND_ACCEPTED', api_accepted=True, outcome_unknown=False)
+                if isinstance(value.get('message_id'), (str, int)):
+                    result['server_message_id'] = value['message_id']
+            except BotError as exc:
+                unknown = (str(exc) in ('BOT_NETWORK_TIMEOUT', 'BOT_NETWORK_ERROR', 'BOT_INVALID_RESPONSE')
+                           or str(exc).startswith('BOT_HTTP_5'))
+                result.update(ok=False, code=str(exc), api_accepted=None if unknown else False,
+                              outcome_unknown=unknown, message_submission_attempted=True)
+            attempt['attempts'].append(dict(result))
+        attempt.update(result=result, phase='finished')
+        save(access, attempt_path, attempt)
     return result
 
 
@@ -204,6 +325,16 @@ def run(args, access):
         from ilink_media import download
         return download(access, root, args.attachment_id, args.max_bytes)
     state, pending = read(access, state_path), read(access, pending_path)
+    if args.operation == 'status':
+        return local_status(state)
+    if args.operation == 'recovery':
+        from ilink_recovery import configure, renew_context
+        if args.disable_native_recovery or args.native_chat:
+            return configure(access, root, state, args.native_chat, args.disable_native_recovery)
+        if args.renew:
+            return renew_context(access, root, state, args.request_id)
+        return {'ok': True, 'code': 'BOT_RECOVERY_STATUS', 'enabled': recovery_enabled(state),
+                'configured': bool(state.get('native_recovery')), 'max_context_recoveries_per_send': 1}
     if args.operation == 'login':
         if state.get('bot_token') and not args.refresh:
             return {'ok': True, 'code': 'BOT_CREDENTIALS_PRESENT', 'login_verified': False,
@@ -234,7 +365,8 @@ def run(args, access):
             new_state['connected_at'] = access.now()
             if (state.get('ilink_bot_id') == new_state['ilink_bot_id']
                     and state.get('ilink_user_id') == new_state['ilink_user_id']):
-                new_state.update({k: state[k] for k in ('cursor', 'pending', 'owner_context') if k in state})
+                new_state.update({k: state[k] for k in ('cursor', 'pending', 'owner_context',
+                                                       'native_recovery', 'last_update_poll') if k in state})
             save(access, state_path, new_state)
             pending_path.unlink()
             return {'ok': True, 'code': 'BOT_LOGIN_CONFIRMED', 'message_read_verified': False,
@@ -258,18 +390,8 @@ def run(args, access):
         return send_owner(args, access, root, state)
     queue = state.get('pending', [])
     if not queue:
-        value = request(state['baseurl'], 'getupdates', token=state['bot_token'],
-                        body={'get_updates_buf': state.get('cursor', '')}, timeout=40)
-        queue = value.get('msgs')
-        # Live successful responses omit ret/errcode; require the observed
-        # message-list/cursor shape instead of treating HTTP 200 as success.
-        if (value.get('ret') not in (None, 0) or value.get('errcode') not in (None, 0)
-                or not isinstance(queue, list) or not all(isinstance(m, dict) for m in queue)
-                or not isinstance(value.get('get_updates_buf'), str)):
-            raise BotError('BOT_INVALID_UPDATES')
-        cursor = value.get('get_updates_buf')
-        if cursor:
-            state['cursor'] = cursor
+        poll_updates(access, root, state)
+        queue = state['pending']
     selected, remaining = queue[:args.limit], queue[args.limit:]
     messages = [public_message(m) for m in selected]
     from ilink_media import cache_item
@@ -283,13 +405,6 @@ def run(args, access):
                 identifier = hashlib.sha256(identity.encode()).hexdigest()
                 save(access, root / 'unrecognized' / (identifier + '.json'), item)
                 output['raw_item_id'] = identifier
-    for msg in selected:
-        if (state.get('ilink_user_id') and msg.get('from_user_id') == state['ilink_user_id']
-                and msg.get('to_user_id') == state.get('ilink_bot_id')
-                and not msg.get('group_id')
-                and msg.get('message_type') == 1 and isinstance(msg.get('context_token'), str)
-                and msg['context_token']):
-            state['owner_context'] = {'user_id': state['ilink_user_id'], 'token': msg['context_token']}
     state['pending'] = remaining
     # Cursor and remaining messages advance together only after a validated response.
     save(access, state_path, state)
@@ -301,9 +416,12 @@ def run(args, access):
 def main(argv, access):
     from pathlib import Path
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['login', 'finish', 'updates', 'send', 'download'])
+    parser.add_argument('operation', choices=['login', 'finish', 'updates', 'send', 'download', 'status', 'recovery'])
     parser.add_argument('--account', default='me')
     parser.add_argument('--refresh', action='store_true', help='Explicitly request a new login QR')
+    parser.add_argument('--native-chat', help='Configure the exact personal-WeChat ClawBot chat ID for bounded recovery')
+    parser.add_argument('--disable-native-recovery', action='store_true')
+    parser.add_argument('--renew', action='store_true', help='Exercise configured recovery once; requires a unique request ID')
     parser.add_argument('--verify-code-file', type=Path, help='Owner-only file containing the displayed pairing digits')
     parser.add_argument('--limit', type=int, default=20)
     content = parser.add_mutually_exclusive_group()
@@ -327,9 +445,9 @@ def main(argv, access):
         (access.STATE / 'bots').chmod(0o700)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         root.chmod(0o700)
-        # Downloads read immutable attachment references and atomically replace
-        # local files. They do not consume the cursor or mutate login/send state.
-        if args.operation == 'download':
+        # Status is a local snapshot; downloads read immutable references. Both
+        # remain usable while a bounded poll holds the mutation lock.
+        if args.operation in ('download', 'status'):
             return run(args, access)
         fd = os.open(root/'command.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:

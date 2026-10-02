@@ -14,7 +14,7 @@
       "transport": "ilink_https_third_party_sdk",
       "auth": "Owner QR binding; isolated private bot credentials; actual API baseurl from login response",
       "status": "partially_verified",
-      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate; file/PNG upload and send accepted, owner confirmed file opens and image displays; inbound XLSX/JPEG/SILK downloads verified; XLSX parsed, image viewed; voice recognition unverified; owner confirms ClawBot phone client does not support custom stickers, only emoji; personal CLI type47 obtained a server ID/local XML but no corresponding iLink item and does not prove ClawBot sticker usability; native share cards still not connected; iLink operations independent of desktop",
+      "verified_scope": "SDK QR binding, inbound text and owner-directed sends verified; Linux 4.1.13 local ClawBot history/readback and supplemental OneBot text round trip verified; ordinary personal sends remain separate; file/PNG upload and send accepted, owner confirmed file opens and image displays; inbound XLSX/JPEG/SILK downloads verified; XLSX parsed, image viewed; voice recognition unverified; owner confirms ClawBot phone client does not support custom stickers, only emoji; personal CLI type47 obtained a server ID/local XML but no corresponding iLink item and does not prove ClawBot sticker usability; native share cards still not connected; iLink operations independent of desktop; 2026-10-03 personal-CLI context refresh, exact iLink inbound and bot notification verified; controlled locally injected -2 followed by live CLI/network recovery and single local readback/replay verified, natural recurrent expiry and long-term unattended stability remain unverified; only recovery requires the personal desktop client",
       "capabilities": {
         "login": "runtime_verified",
         "updates": "runtime_verified",
@@ -23,7 +23,8 @@
         "media-send": "runtime_verified",
         "media-download": "runtime_verified",
         "native-sticker": "not_connected",
-        "share-card": "not_connected"
+        "share-card": "not_connected",
+        "recover-context": "runtime_verified"
       }
     },
     {

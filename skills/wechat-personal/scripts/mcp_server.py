@@ -59,6 +59,12 @@ def clawbot_updates(limit: int = 20, account: str = 'me') -> dict:
 
 
 @server.tool(annotations=READ)
+def clawbot_status(account: str = 'me') -> dict:
+    """Read local ClawBot context metadata and recovery configuration without polling or exposing credentials. Cached context validity is unknown."""
+    return invoke(['bot', 'status', '--account', account])
+
+
+@server.tool(annotations=READ)
 def wecom_notifications(limit: int = 20, account: str = 'me') -> dict:
     """Read locally forwarded Android WeCom notification text only; excludes unnotified chats and historical inbox data."""
     return invoke(['notifications', 'list', '--account', account, '--limit', str(max(1, min(limit, 100)))])
@@ -66,17 +72,17 @@ def wecom_notifications(limit: int = 20, account: str = 'me') -> dict:
 
 @server.tool(annotations=SEND)
 def clawbot_send(text: str, request_id: str, account: str = 'me') -> dict:
-    """Send text as ClawBot to its bound owner; standing authorization applies. Reuse request_id to retrieve an attempt without resending. API acceptance does not prove delivery."""
-    return invoke(['bot', 'send', '--account', account, '--text=' + text, '--request-id', request_id])
+    """Send text as ClawBot to its bound owner; standing authorization applies. Configured recovery can refresh one explicit context rejection through the personal CLI. Reuse request_id to inspect without resending. API acceptance does not prove delivery."""
+    return invoke(['bot', 'send', '--account', account, '--text=' + text, '--request-id', request_id], timeout=210)
 
 
 @server.tool(annotations=SEND)
 def clawbot_send_media(path: str, request_id: str, kind: str = 'file', account: str = 'me') -> dict:
-    """Send a local file/image/video as ClawBot to its bound owner, without desktop WeChat. Standing authorization applies. Default limit 32 MiB. Native stickers/cards are not verified. Reuse request_id to inspect without resending."""
+    """Send a local file/image/video as ClawBot to its bound owner. iLink sends do not require desktop WeChat; configured context recovery does. Standing authorization applies. Default limit 32 MiB. Native stickers/cards are not verified. Reuse request_id to inspect without resending."""
     if kind not in ('file', 'image', 'video'):
         return {'ok': False, 'code': 'BOT_UNSUPPORTED_MEDIA_KIND'}
     return invoke(['bot', 'send', '--account', account, '--' + kind + '=' + path,
-                   '--request-id', request_id], timeout=75)
+                   '--request-id', request_id], timeout=300)
 
 
 @server.tool(annotations=POLL)
