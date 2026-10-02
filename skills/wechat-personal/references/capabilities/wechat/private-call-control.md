@@ -6,7 +6,7 @@ status: "runtime_verified"
 command: ["native", "call", "inspect", "--pid", "<client_pid>", "--start-time", "<proc_start_time>"]
 evidence: "2026-10-02 installed ordinary CLI private start and incoming answer each observed connection, played generated Chinese speech afterwards and normally hung up; same-ID replay did not dial or accept again. Incoming source/installed history reports 00:11/00:12. 157 tests complete, one skipped; 23 installed package files match reviewed source/wheel. WeCom calling and acceptance still use normal GUI."
 transport: "normal_qt_atspi_and_niri_keyboard"
-note: "个人微信正常GUI控制的CLI封装，私聊呼叫/接听/状态/播放/挂断已实测；原生VoIP API、企微呼叫控制及群成员邀请尚未完成。"
+note: "个人微信正常GUI控制的CLI封装，私聊呼叫/接听/状态/播放/挂断已实测；群成员选择另有契约，群邀请/连接及企微呼叫控制仍待验收。"
 ---
 
 # 个人微信私聊呼叫控制
@@ -23,7 +23,7 @@ native call play --request-id CALL_ID --file /路径/通知.wav --audio-request-
 native call hangup --request-id CALL_ID
 ```
 
-`open`不呼叫；`start`验证所选账号数据库在指定进程中打开、联系人完整名称在对应个人/企业联系人命名空间唯一，并核对窗口标题后，操作正常语音菜单。GUI未暴露原生精确ID；同命名空间重名时拒绝，改用computer-use独立核对。搜索结果/标题更新需等待真实异步变化，不能直接按旧列表位置呼叫。`open`可导航群聊，`start`目前拒绝群聊；不能借此绕过群成员选择。
+`open`不呼叫；`start`验证所选账号数据库在指定进程中打开、联系人完整名称在对应个人/企业联系人命名空间唯一，并核对窗口标题后，操作正常语音菜单。GUI未暴露原生精确ID；同命名空间重名时拒绝，改用computer-use独立核对。搜索使用真实键盘事件并等待异步结果，只在对应联系人/群聊分区内定位；上方网络搜索行计入导航位置但不能当联系人。群聊`start`要求显式成员，按[群成员选择契约](group-call-selection.md)执行；不能绕过成员预检。
 
 GUI控制依赖niri、wtype、系统Python的GI/libatspi、正常Qt辅助接口和已安装的niri-computer-use显示会话助手。沿用同一桌面焦点。CLI自行begin/wake/end并验证屏幕电源/亮度；已有其他显示会话时拒绝，先结束本人agent的会话后再调用。inspect/status不唤醒屏幕；无辅助接口或程序身份变化时停在此入口，按主skill用computer-use。
 

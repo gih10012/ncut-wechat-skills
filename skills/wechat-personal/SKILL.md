@@ -43,7 +43,7 @@ description: 探索、验证并复用本人微信和企业微信的消息、公�
 
 CLI 无法完成的任务，使用 `niri-computer-use` 操作现有微信窗口补齐；沿用当前发送授权，CLI 提交结果未知时先核对原请求和聊天记录，避免在窗口重复发送。
 
-语音通话：普通个人微信CLI已实测`native call open/start/answer/status/play/hangup`，发起私聊、接听精确本轮来电、读取连接、接通后播放指定PCM WAV、正常挂断及防重；按[私聊控制契约](references/capabilities/wechat/private-call-control.md)执行。这是正常Qt界面的CLI封装，需本机niri/辅助接口；来电提示不暴露精确联系人ID，接听授权另核对。企微端仍由computer-use发起/接听。正常窗口私聊与双向对端生成音频也已实测，两端已安装`audio streams/play/status/recover`，按[音频契约](references/capabilities/wechat/call-audio.md)调用。企微呼叫控制及群聊选成员仍在开发，按[总体通话契约](references/capabilities/wechat/voice-call.md)继续；不能从输入流或本地播放推断对端接通。
+语音通话：普通个人微信CLI已实测`native call open/start/answer/status/play/hangup`，发起私聊、接听精确本轮来电、读取连接、接通后播放指定PCM WAV、正常挂断及防重；按[私聊控制契约](references/capabilities/wechat/private-call-control.md)执行。这是正常Qt界面的CLI封装，需本机niri/辅助接口；来电提示不暴露精确联系人ID，接听授权另核对。企微端仍由computer-use发起/接听。正常窗口私聊与双向对端生成音频也已实测，两端已安装`audio streams/play/status/recover`，按[音频契约](references/capabilities/wechat/call-audio.md)调用。群聊成员选择/取消已由普通CLI实测，按[群成员选择契约](references/capabilities/wechat/group-call-selection.md)调用；群邀请/连接/播音及企微呼叫控制仍待验收，按[总体通话契约](references/capabilities/wechat/voice-call.md)继续；不能从输入流或本地播放推断对端接通。
 
 单项新能力最多探索15分钟实际工作时间；切换路线不重置，等待本人认证不计入。到点报告证据、缺项和后续选项。日常优先通过 HTTP、已有命令或本机数据执行，界面用于必要登录、接口发现及 CLI 无法完成的任务。长期路线图留在仓库 README，不自动串行推进。
 
