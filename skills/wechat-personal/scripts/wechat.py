@@ -125,9 +125,10 @@ def wecom(argv):
     if not executable:
         access.emit({'ok':False, 'code':'WECOM_CLI_NOT_INSTALLED'})
         return 1
-    if argv[:2] == ['web', 'relay']:
+    if argv[:2] in (['web', 'relay'], ['audio', 'play']):
         # The CLI announces its local URL immediately, then serves until its
-        # own bounded deadline. Preserve streaming output and Ctrl+C cleanup.
+        # own bounded deadline. Audio can last five minutes and must drain on
+        # Ctrl+C/SIGTERM, rather than be killed by the generic read timeout.
         return subprocess.run([executable, *argv], check=False).returncode
     try:
         result = subprocess.run([executable, *argv], capture_output=True, text=True, timeout=180)
