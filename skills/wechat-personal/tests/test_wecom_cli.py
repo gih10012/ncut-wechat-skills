@@ -43,3 +43,14 @@ class WeComCliTests(unittest.TestCase):
             self.assertEqual(wx.wecom(['status']), 1)
         self.assertEqual(run.call_count, 1)
         self.assertEqual(json.loads(output.getvalue())['code'], 'ORIGINAL_FAILURE')
+
+    def test_connected_call_play_drains_without_generic_read_timeout(self):
+        response = subprocess.CompletedProcess([], 13)
+        args = ['call', 'play', '--request-id', 'call-1', '--audio-request-id', 'audio-1',
+                '--file', '/private/notification.wav', '--wait-seconds', '120']
+        with patch.object(wx.shutil, 'which', return_value='/usr/bin/wecom-linux'), \
+             patch.object(wx.subprocess, 'run', return_value=response) as run:
+            self.assertEqual(wx.wecom(args), 13)
+        self.assertEqual(run.call_count, 1)
+        self.assertNotIn('timeout', run.call_args.kwargs)
+        self.assertEqual(run.call_args.args[0], ['/usr/bin/wecom-linux', *args])

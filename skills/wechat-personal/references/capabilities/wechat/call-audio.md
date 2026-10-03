@@ -4,14 +4,14 @@ service: wechat
 keywords: ["通话播放音频", "语音通知", "指定音频", "企微通话音频", "通话麦克风路由"]
 status: "runtime_verified"
 command: ["native", "audio", "streams", "--pid", "<client_pid>", "--start-time", "<proc_start_time>"]
-evidence: "2026-10-02 both installed ordinary CLIs passed actual isolated-stream PCM playback, restoration and no-playback replay. A normal GUI-connected WeCom/WeChat private call independently received source CLI Chinese speech in both directions (envelope correlations 0.88/0.93). Installed code matches reviewed source and wheels. Call control/group calls are separate."
+evidence: "2026-10-02 both installed ordinary CLIs passed isolated-stream PCM playback, restoration and no-playback replay; a normal GUI-connected call independently received source CLI Chinese speech in both directions (0.88/0.93). 2026-10-03 installed call-play commands independently reached both opposite clients (0.87/0.95, histories 00:22) with exact restoration. Private call controls have separate contracts; group calls remain unverified."
 transport: "existing_capture_stream_via_local_pulse"
 note: "确认接通和参与人授权后播放；audio本身不发起/接听通话，不从输入流或本地播放推断对端送达。"
 ---
 
 # 已接通通话的音频
 
-先按[通话契约](voice-call.md)核对参与人授权与连接状态。个人微信可按[私聊CLI控制](private-call-control.md)发起/挂断，`call play`会先检查该通话连接再播放；接听、企微呼叫控制仍用computer-use。只有输入流、等待接听或“正在建立连接”不足，需连接计时或对端确认。audio基础命令不把任意音频流当作已接通通话。
+先按[通话契约](voice-call.md)核对参与人授权与连接状态。个人按[个人私聊CLI](private-call-control.md)、企微按[企微私聊CLI](../wecom/private-call-control.md)发起/接听/挂断；两端`call play`先检查原通话连接再播放。只有输入流、等待接听或“正在建立连接”不足，需实际连接计时或对端确认。audio基础命令不把任意音频流当作已接通通话。
 
 个人端用`python3 "$WX" native audio ...`，企微端用`python3 "$WX" wecom audio ...`。桥接普通安装CLI，无需sudo；PID和`/proc/PID/stat`启动时间来自本轮真实客户端。
 
@@ -26,4 +26,4 @@ audio recover --request-id 原ID
 
 输入绑定精确PID、启动时间、流索引/客户端/序号，临时转入独立虚拟输入；完成后恢复原设备并移除自建模块，不改默认输入/输出。流断开、静音、身份变化或手动改路由时停止，不碰替换流。同ID同音频/目标只返回旧结果；改内容/目标拒绝，未知状态不换ID重播。强制退出后先查原ID，再recover清理，清理不播放。记录在私有`~/.local/state/wechat-audio/`，不需常驻接收服务。
 
-`playback_finished`只表示本地播放器完成，`remote_delivery_verified`和`call_connection_verified`保持false，agent按独立证据说明范围。此次双向对端音频和正常挂断、本机普通安装命令路由及source/wheel/安装一致性分别记录于私有voice-call状态。不能合并成完整通话CLI已实现。
+`playback_finished`只表示本地播放器完成，音频原语的`remote_delivery_verified`和`call_connection_verified`保持false；`call play`另用`call_connection_verified_before_playback`表示真实UI检查，agent按独立证据说明范围。2026-10-03两端普通call-play命令的接收输出录制匹配0.87/0.95，两边历史00:22，正常挂断与原路由/默认设备/临时模块清理通过，证据私存。不能把私聊互测扩大为群连接或其他参与人已验收。

@@ -8,6 +8,8 @@
 
 日常入口是 `wecom-linux`；本skill的`wecom`子命令仅调用已安装CLI一次，不切换身份或后端。缺少密钥时才捕获，不在每次正常读取前扫描进程。已配置的`me`绑定精确账号数据目录；不自动选择最大的数据库。详细本机路径、登录结果、私有日志和接续状态只保存于本机私有状态，不写入公共仓库。
 
+2026-10-03追加：普通企微CLI私聊发起、按本轮令牌接听、计时连接、接通后播音、正常挂断及防重均通过，按[企微私聊控制](../capabilities/wecom/private-call-control.md)直接执行。两端安装call-play的生成音频独立录制匹配0.87/0.95、双端历史00:22，原路由/默认设备/临时模块恢复通过。109项CLI测试、29个source/wheel/installed包文件一致检查通过。正常托盘退出/客户端重启后，普通预加载19个系统DLL约5.24秒达到就绪，账号/历史保留，新进程入站接听与出站发起/连接后播音/挂断/防重通过；该轮没有重启整个Wine运行时。企微启动后入站测试先做`wecom-linux call preflight --account me`；目标没有附着view时用computer-use打开精确已授权会话再preflight，不能盲目换ID发起。主号个人微信保持原进程，不要求切小号。群通话/成员选择、整套Wine冷启动及长期稳定性继续开发。
+
 ```sh
 wecom-linux status
 wecom-linux client start
