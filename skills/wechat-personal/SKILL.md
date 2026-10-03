@@ -43,7 +43,7 @@ description: 复用本人微信、企业微信和ClawBot的消息、媒体、朋
 
 CLI 无法完成的任务，使用 `niri-computer-use` 操作现有微信窗口补齐；沿用当前发送授权，CLI 提交结果未知时先核对原请求和聊天记录，避免在窗口重复发送。
 
-语音通话：个人`native call open/start/answer/status/play/hangup`按[个人私聊契约](references/capabilities/wechat/private-call-control.md)，企微`wecom call preflight/start/answer/status/play/hangup`按[企微私聊契约](references/capabilities/wecom/private-call-control.md)直接调用。两端普通CLI发起/接听、接通后播放指定PCM WAV、正常挂断及防重均已实测，双向接收输出录制匹配0.87/0.95。这些是正常Qt/DuiLib界面的CLI封装，依赖本机niri/辅助接口；来电令牌不暴露精确联系人ID，接听授权另核对。企微启动后先做`wecom call preflight --account me`预加载已核验系统DLL，再测入站通话。`audio streams/play/status/recover`原语按[音频契约](references/capabilities/wechat/call-audio.md)使用；仅有输入流不证明接通。群成员选择/取消已由个人普通CLI实测，按[群选择契约](references/capabilities/wechat/group-call-selection.md)调用；群邀请/连接/播音与企微群控制仍按[总体契约](references/capabilities/wechat/voice-call.md)继续，不能把私聊验收扩大为群通话成功。
+语音通话：个人`native call open/start/answer/status/play/hangup`按[个人私聊契约](references/capabilities/wechat/private-call-control.md)，企微`wecom call preflight/start/answer/status/play/hangup`按[企微私聊契约](references/capabilities/wecom/private-call-control.md)直接调用。两端普通CLI发起/接听、接通后播放指定PCM WAV、正常挂断及防重均已实测，双向接收输出录制匹配0.87/0.95。这些是正常Qt/DuiLib界面的CLI封装，依赖本机niri/辅助接口；来电令牌不暴露精确联系人ID，接听授权另核对。企微启动后先做`wecom call preflight --account me`预加载已核验系统DLL，再测入站通话。`audio streams/play/status/recover`原语按[音频契约](references/capabilities/wechat/call-audio.md)使用；仅有输入流不证明接通。个人群指定成员选择/取消、邀请/正常挂断/防重已由普通CLI实测，按[群控制契约](references/capabilities/wechat/group-call-selection.md)调用；群连接/播音与企微群控制仍按[总体契约](references/capabilities/wechat/voice-call.md)继续，不能把邀请成功算作群接通或收音。
 
 单项新能力最多探索15分钟实际工作时间；切换路线不重置，等待本人认证不计入。到点报告证据、缺项和后续选项。日常优先通过 HTTP、已有命令或本机数据执行，界面用于必要登录、接口发现及 CLI 无法完成的任务。长期路线图留在仓库 README，不自动串行推进。
 
@@ -57,7 +57,7 @@ CLI 无法完成的任务，使用 `niri-computer-use` 操作现有微信窗口�
 
 当前企微开发按本人已批准的计划执行：必须免费，允许独立 Wine 环境；Android 容器和鸿蒙通知接入暂缓。先验证个人消息读取、发送，使用独立开源 `wecom-linux` CLI 并由本 skill 调用。先测资源和重启稳定性，再由本人决定是否常驻；当前不配置自启动。2026-10-02本人改为要求在微信/企微CLI中加入协议链接的通用转换或中继，供Edge/Chrome直接浏览；学校应用复用该入口或computer-use，不在CLI实现学校专用业务适配。普通成员没有企业会话存档权限，不把机器人身份或付费 WorkPro 当作个人消息后端。读取默认分页，全部历史只覆盖实际同步数据。
 
-2026-10-02本人追加私聊/群聊语音通话、选择邀请成员、接通后播放指定音频的CLI开发与本人账号互测授权；本人两端对应会话及两个明确的小号可用于当前验收，微信号和精确身份保存在私有授权记录，先核对身份，不扩大至其他同名人或学校群成员。两端普通CLI私聊控制与双向音频已分别实测；群邀请/连接/播音仍待完成。2026-10-03本人说明登录小号会挤掉电脑主号，后续保留当前主号，不要求切换小号；已授权的电脑微信/企微互测可继续。不能把本机播放或窗口出现当对端送达；确实不可用时按已有授权发本人私信通知。
+2026-10-02本人追加私聊/群聊语音通话、选择邀请成员、接通后播放指定音频的CLI开发与本人账号互测授权；本人两端对应会话及两个明确的小号可用于当前验收，微信号和精确身份保存在私有授权记录，先核对身份，不扩大至其他同名人或学校群成员。两端普通CLI私聊控制与双向音频已分别实测；群连接/播音与企微群控制仍待完成。2026-10-03本人说明登录小号会挤掉电脑主号，后续保留当前主号，不要求切换小号；已授权的电脑微信/企微互测可继续。不能把本机播放或窗口出现当对端送达；确实不可用时按已有授权发本人私信通知。
 
 本人另有明确长期授权的微信与企微对应会话对，允许双向读取、写入和收发验收，无需逐次确认。实际联系人名称、单位后缀、精确会话 ID 和授权来源保存在本机 `~/.local/state/ncut-wechat-skills/send-authorizations.json`；向其他对象写入前先检查适用的已有授权。首次绑定须核对对应身份及单位后缀，不能把授权扩大到其他同名联系人。授权记录与各端、各格式的实际验收分别维护，不在 CLI 后端增加收件人白名单。
 

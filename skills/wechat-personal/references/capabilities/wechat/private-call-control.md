@@ -6,7 +6,7 @@ status: "runtime_verified"
 command: ["native", "call", "inspect", "--pid", "<client_pid>", "--start-time", "<proc_start_time>"]
 evidence: "2026-10-02 installed ordinary CLI private start and incoming answer each observed connection, played generated Chinese speech afterwards and normally hung up; same-ID replay did not dial or accept again. Incoming source/installed history reports 00:11/00:12. 157 tests complete, one skipped; 23 installed package files match reviewed source/wheel. 2026-10-03 both installed call-play commands independently reached opposite clients, envelope correlations 0.87/0.95, both histories 00:22; installed WeCom call control separately verified."
 transport: "normal_qt_atspi_and_niri_keyboard"
-note: "个人微信正常GUI控制的CLI封装，私聊呼叫/接听/状态/播放/挂断已实测；企微私聊控制另有契约，群邀请/连接仍待验收。"
+note: "个人微信正常GUI控制的CLI封装，私聊呼叫/接听/状态/播放/挂断已实测；企微私聊控制另有契约，群连接/播音仍待验收。"
 ---
 
 # 个人微信私聊呼叫控制
