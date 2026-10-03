@@ -1,6 +1,5 @@
 """Assigned Safety Companion tasks, course materials and progress readback."""
 import json
-import re
 import urllib.parse as up
 from pathlib import Path
 
@@ -114,13 +113,6 @@ def courses(args):
                        'finished': str(r.get('finished')) == '1', 'source': r.get('source')} for r in rows]})
 
 
-def parse_completion(text):
-    """The native SDK uses JSONP; do not execute returned JavaScript."""
-    match = re.fullmatch(r'\s*[A-Za-z_$][\w$]*\s*\((\{.*\})\)\s*;?\s*', text, re.S)
-    data = json.loads(match.group(1) if match else text)
-    return data.get('result', data)
-
-
 def course(args):
     state = load_session(args.account)
     auth = state.get('service_data', {}).get('weiban', {})
@@ -132,6 +124,10 @@ def course(args):
     row = next((r for r in rows if r.get('resourceId') == args.course), None)
     if row is None:
         emit({'ok': False, 'code': 'COURSE_NOT_ASSIGNED'}); return
+    if args.action == 'verify':
+        finished = str(row.get('finished')) == '1'
+        emit({'ok': True, 'name': row['resourceName'], 'finished': finished,
+              'code': 'COURSE_FINISHED' if finished else 'COURSE_NOT_FINISHED'}); return
     if str(row.get('finished')) == '1':
         emit({'ok': True, 'already_finished': True, 'name': row['resourceName']}); return
     if row.get('source') != 1:
@@ -156,49 +152,3 @@ def course(args):
                                          'user_course_id': row['userCourseId'], 'cs_capt': params.get('csCapt', [''])[0]}, ensure_ascii=False))
         emit({'ok': True, 'name': row['resourceName'], 'material_url': parsed._replace(query='', fragment='').geturl(),
               'private_record': str(record), 'captcha_required': params.get('csCapt', [''])[0] != 'false'}); return
-    if not args.reviewed:
-        emit({'ok': False, 'code': 'CONTENT_REVIEW_REQUIRED'}); return
-    if not record.exists():
-        emit({'ok': False, 'code': 'START_COURSE_FIRST'}); return
-    saved = json.loads(private_read(record))
-    if saved.get('course_id') != args.course or saved.get('user_course_id') != row['userCourseId']:
-        emit({'ok': False, 'code': 'COURSE_RECORD_MISMATCH'}); return
-    if saved.get('cs_capt') != 'false':
-        emit({'ok': False, 'code': 'USE_NATIVE_CAPTCHA_FLOW'}); return
-    # An unresolved earlier submission may already have reached the service.
-    # Only read it back; a repeated CLI call must never send it again.
-    if saved.get('submission_started_at'):
-        read_info, updated = _post(state, auth, 'usercourse/listCourse.do', {
-            'userProjectId': args.project, 'chooseType': 3, 'categoryCode': row['categoryCode']})
-        if updated is None:
-            emit(read_info); return
-        finished = any(r.get('userCourseId') == row['userCourseId'] and str(r.get('finished')) == '1' for r in updated)
-        if finished:
-            private_write(record, json.dumps({**saved, 'finished_at': now()}, ensure_ascii=False))
-        emit({'ok': finished, 'finished': finished, 'code': 'COURSE_FINISHED' if finished else 'USE_NATIVE_COMPLETION_FLOW',
-              'submission_repeated': False}); return
-    # The verified SDK has no fabricated elapsed time or guessed completion ID.
-    user_course_id = row['userCourseId']
-    if not re.fullmatch(r'[a-fA-F0-9-]{36}', user_course_id):
-        emit({'ok': False, 'code': 'INVALID_ASSIGNED_COURSE_ID'}); return
-    url = service('weiban')['origins'][0] + '/pharos/usercourse/v2/' + user_course_id + '.do?' + up.urlencode({
-        'userCourseId': user_course_id, 'tenantCode': auth['tenantCode'], 'callback': 'ncutSafety'})
-    saved = {**saved, 'submission_started_at': now()}
-    private_write(record, json.dumps(saved, ensure_ascii=False))
-    info, body = fetch(url, state=state, timeout=20)
-    try:
-        result = parse_completion(body.decode('utf8')) if info['ok'] else {}
-    except (ValueError, UnicodeDecodeError, AttributeError):
-        result = {}
-    # A timeout/unknown response is resolved by readback, never a second write.
-    read_info, updated = _post(state, auth, 'usercourse/listCourse.do', {
-        'userProjectId': args.project, 'chooseType': 3, 'categoryCode': row['categoryCode']})
-    finished = updated is not None and any(r.get('userCourseId') == user_course_id and str(r.get('finished')) == '1' for r in updated)
-    if finished:
-        private_write(record, json.dumps({**saved, 'finished_at': now()}, ensure_ascii=False))
-    if read_info.get('code') == 'ACCOUNT_TEMPORARILY_LOCKED' or info.get('status') == 701:
-        emit({'ok': False, 'code': 'ACCOUNT_TEMPORARILY_LOCKED', 'finished': False}); return
-    emit({'ok': bool(finished), 'name': row['resourceName'], 'finished': bool(finished),
-          'completion_code': result.get('code'), 'completion_detail_code': result.get('detailCode'),
-          'code': 'COURSE_FINISHED' if finished else 'COMPLETION_NOT_VERIFIED',
-          'submission_response_known': bool(result), 'readback_ok': read_info['ok']})

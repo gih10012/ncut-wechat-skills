@@ -42,7 +42,7 @@ python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' -
 
 成绩默认查询最近已有成绩的学期；`--term` 使用返回的 `available_terms[].id`，保留学校原始分数和不同考试记录。正常两次 HTTP；最新学期确实无数据才向前查。细节仅需修改或排错时读 [成绩契约](references/capabilities/jwxtbk/personal-grades.md)。
 
-安全微伴状态与课程列表可直接查询，返回当前/补学项目、完成数、考试记录及本人分配的课程。课程开始及原生完成上报曾实测成功，但批量开课触发过平台暂停学习1小时；学习时逐门办理，遇HTTP701按原生页面等待解锁后重新进入，不能循环重试或把code=0当完成。课程办理前读[课程契约](references/capabilities/weiban/safety-courses.md)；状态查询见[状态契约](references/capabilities/weiban/safety-status.md)。考试答题/交卷尚未验收。临时页面操作可用computer-use。
+安全微伴状态与课程列表可直接查询，返回当前/补学项目、完成数、考试记录及本人分配的课程。课程列表与开始可复用CLI；课程完成须办理原生页面互动/课后题，再只读verify。批量开课触发过平台暂停学习1小时；学习时逐门办理，遇HTTP701按原生页面等待解锁后重新进入，不能循环重试或把code=0当完成。课程办理前读[课程契约](references/capabilities/weiban/safety-courses.md)；状态查询见[状态契约](references/capabilities/weiban/safety-status.md)。考试答题/交卷尚未验收。临时页面操作可用computer-use。
 
 ## 登录与失败
 
