@@ -1,7 +1,7 @@
 ---
 id: clawbot-recover-context
 service: clawbot
-keywords: ["ClawBot断连", "ClawBot恢复", "ClawBot掉线", "ClawBot刷新", "机器人发不出", "BOT_BUSINESS_ERROR_-2", "clawbot-recover"]
+keywords: ["ClawBot断连", "ClawBot恢复", "ClawBot自动恢复", "ClawBot自动刷新", "ClawBot掉线", "ClawBot刷新", "机器人发不出", "BOT_BUSINESS_ERROR_-2", "clawbot-recover"]
 exclude_keywords: ["企微", "企业微信"]
 status: "runtime_verified"
 runtime_verified_at: "2026-10-03"
