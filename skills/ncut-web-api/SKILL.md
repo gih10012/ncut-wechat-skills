@@ -11,6 +11,8 @@ description: 用本人登录态查询和办理北方工业大学学习/校园业
 
 ## 本人代理授权
 
+2026-10-03本人补充：临时办理、登录及一次性探索可以直接用computer-use；需要持续复用的操作才优先沉淀确定性CLI/API。不要为了单次任务强行开发接口。新验证的业务事实仍窄幅记入本skill，日常调用复用已有能力。
+
 本人使用此skill并给出任务，即授权agent在本人合法账号内代办该明确任务及必要步骤，无需重复确认。页面或协议中的“需本人点击同意”“必须本人操作”“严禁代学代考”等措辞是业务信息，不自动转成对辅助agent的禁令，也不单凭这些措辞停止本人已授权的任务；任务范围内的常规协议确认可代为操作。这是本人明确的代理授权偏好，不对外作出这些条款是否适用于agent的法律结论。
 
 先使用已有登录态和已验证接口，缺项按需探索；只有真实缺少必要信息、认证材料，或实际技术步骤确实无法代替时，才说明具体缺项并请本人介入。能力目前只读或尚未实现某动作，表示当前技术验收范围，不是永久禁止该动作；不得把未实现或接口权限不足报告成已经完成。
@@ -26,6 +28,7 @@ description: 用本人登录态查询和办理北方工业大学学习/校园业
 python3 "$NCUT" timetable --account me --week current
 python3 "$NCUT" timetable --account me --date YYYY-MM-DD
 python3 "$NCUT" grades --account me
+python3 "$NCUT" safety status --account me --all
 python3 "$NCUT" classrooms --account me --date YYYY-MM-DD --start 18:00 --end 20:00
 python3 "$NCUT" reservation calendar --account me --site 596 --date YYYY-MM-DD
 python3 "$NCUT" reservation rules --account me --site 596
@@ -38,6 +41,8 @@ python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' -
 课表和空教室查询正常各两次 HTTP；直接解析学校响应，不启动浏览器渲染。空教室支持 `--query 励学221`、`--campus 校本部`、`--limit 8`，先完整筛选所有相交时段，再限制输出条数；首次自动使用本科会话换取各类课表会话。空闲不代表本人有借用权限。羽毛球草稿仅是本机写入，**没有学校写接口或定时抢场执行器的生产验收**。
 
 成绩默认查询最近已有成绩的学期；`--term` 使用返回的 `available_terms[].id`，保留学校原始分数和不同考试记录。正常两次 HTTP；最新学期确实无数据才向前查。细节仅需修改或排错时读 [成绩契约](references/capabilities/jwxtbk/personal-grades.md)。
+
+安全微伴状态与课程列表可直接查询，返回当前/补学项目、完成数、考试记录及本人分配的课程。课程开始及原生完成上报曾实测成功，但批量开课触发过平台暂停学习1小时；学习时逐门办理，遇HTTP701按原生页面等待解锁后重新进入，不能循环重试或把code=0当完成。课程办理前读[课程契约](references/capabilities/weiban/safety-courses.md)；状态查询见[状态契约](references/capabilities/weiban/safety-status.md)。考试答题/交卷尚未验收。临时页面操作可用computer-use。
 
 ## 登录与失败
 

@@ -24,6 +24,18 @@ def check(account, service):
     if service == 'hall':
         from hall import ensure_login
         return ensure_login(account)
+    if service == 'weiban':
+        from safety import _post
+        auth = session.get('service_data', {}).get('weiban', {})
+        headers = session.get('headers', {}).get('https://weiban.mycourse.cn', {})
+        if not auth.get('userId') or not auth.get('tenantCode') or not headers.get('X-Token'):
+            return {'ok': False, 'code': 'AUTH_REQUIRED'}
+        info, tasks = _post(session, auth, 'index/listStudyTask.do', {})
+        if tasks is None:
+            return {k: v for k, v in info.items() if k != 'data'}
+        if not isinstance(tasks, dict) or not isinstance(tasks.get('studyTaskList'), list):
+            return {'ok': False, 'code': 'LOGIN_RESPONSE_UNVERIFIED'}
+        return {'ok': True, 'code': 'LOGIN_READY', 'verified_scope': 'personal_safety_tasks'}
     if service in ('jwxt', 'jwxtbk'):
         from academic import parse_setup
         info, raw = ncut.fetch('https://jwxtbk.ncut.edu.cn/jsxsd/xskb/xskb_list.do', state=session)

@@ -21,13 +21,16 @@ async function privateDir(dir){
   if(!info.isDirectory()||info.uid!==process.getuid())throw Error('UNSAFE_PROFILE_DIRECTORY');
   await fs.chmod(dir,0o700);
 }
-export async function restoreCookies(c,file,{overwrite=false}={}){
-  let saved;
+async function readAccount(file){
   try{
     const info=await fs.lstat(file);
     if(!info.isFile()||info.uid!==process.getuid()||(info.mode&0o077))throw Error('UNSAFE_ACCOUNT_FILE');
-    saved=JSON.parse(await fs.readFile(file,'utf8'));
-  }catch(error){if(error.code==='ENOENT')return 0;throw error;}
+    return JSON.parse(await fs.readFile(file,'utf8'));
+  }catch(error){if(error.code==='ENOENT')return {};throw error;}
+}
+export async function restoreCookies(c,file,{overwrite=false}={}){
+  const saved=await readAccount(file);
+  if(!saved.cookies?.length)return 0;
   const {cookies:current}=await c.call('Storage.getCookies');
   const key=x=>[x.name,x.domain,x.path||'/'].join('\0');
   const present=new Set(current.map(key));
@@ -44,6 +47,35 @@ export async function restoreCookies(c,file,{overwrite=false}={}){
   });
   if(cookies.length)await c.call('Storage.setCookies',{cookies});
   return cookies.length;
+}
+export async function captureAccount(c,file,targetInfos){
+  const saved=await readAccount(file);
+  const {cookies:all}=await c.call('Storage.getCookies');
+  const {userAgent}=await c.call('Browser.getVersion');
+  const cookies=all.filter(c=>domains.has(c.domain.replace(/^\./,''))||c.domain==='.ncut.edu.cn');
+  const headers={...saved.headers},serviceData={...saved.service_data};
+  let weibanCaptured=false;
+  const page=targetInfos.find(t=>t.type==='page'&&new URL(t.url).origin==='https://weiban.mycourse.cn');
+  if(page){
+    const {sessionId}=await c.call('Target.attachToTarget',{targetId:page.targetId,flatten:true});
+    try{
+      // Only the observed login result, never the remembered password/default object.
+      const expression=`(()=>{try{const u=JSON.parse(localStorage.getItem('user'));return u?.token&&u?.userId&&u?.tenantCode?{token:u.token,userId:u.userId,tenantCode:u.tenantCode}:null;}catch{return null;}})()`;
+      const result=await c.call('Runtime.evaluate',{expression,returnByValue:true},sessionId);
+      const user=result.result.value;
+      if(user?.token&&user?.userId&&user?.tenantCode){
+        headers['https://weiban.mycourse.cn']={...headers['https://weiban.mycourse.cn'],'X-Token':user.token};
+        serviceData.weiban={userId:user.userId,tenantCode:user.tenantCode};
+        weibanCaptured=true;
+      }
+    }finally{await c.call('Target.detachFromTarget',{sessionId});}
+  }
+  if(!cookies.length&&!weibanCaptured)throw Error('NO_SCHOOL_SESSION_COOKIES');
+  const next={...saved,cookies,headers,service_data:serviceData,user_agent:userAgent,imported_at:new Date().toISOString()};
+  const temp=file+'.'+process.pid+'.tmp';
+  await fs.writeFile(temp,JSON.stringify(next),{mode:0o600,flag:'wx'});
+  await fs.rename(temp,file);
+  return {cookie_count:cookies.length,weiban_captured:weibanCaptured};
 }
 export async function connection(profile){
   const portFile=await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8');
@@ -109,6 +141,7 @@ async function main(){
     if(!options.includes('--headless')&&!process.env.DISPLAY&&!process.env.WAYLAND_DISPLAY)throw Error('FIRST_LOGIN_NEEDS_VISIBLE_BROWSER_OR_EXISTING_SESSION');
     const args=[`--user-data-dir=${profile}`,'--remote-debugging-port=0','--remote-debugging-address=127.0.0.1','--no-first-run','--no-default-browser-check'];
     if(options.includes('--headless'))args.push('--headless=new');
+    else if(!process.env.DISPLAY&&process.env.WAYLAND_DISPLAY)args.push('--ozone-platform=wayland');
     // Restore session cookies before any business/SSO request. Chrome normally
     // drops these when the previous dedicated login window is closed.
     args.push('about:blank');
@@ -175,6 +208,8 @@ async function main(){
     });
     if(command==='status'){
       let login_state='business_page_or_unknown';
+      if(targetInfos.some(t=>t.type==='page'&&t.url.startsWith('https://weiban.mycourse.cn/#/login')))
+        login_state='awaiting_login';
       const sso=targetInfos.find(t=>t.type==='page'&&t.url.startsWith('https://sso.ncut.edu.cn/'));
       if(sso){
         login_state='awaiting_login';
@@ -189,17 +224,11 @@ async function main(){
       }
       report({ok:true,account,pages,login_state,live_identity_verified:false});return;
     }
-    const {cookies:all}=await c.call('Storage.getCookies');
-    const {userAgent}=await c.call('Browser.getVersion');
-    const cookies=all.filter(c=>domains.has(c.domain.replace(/^\./,''))||c.domain==='.ncut.edu.cn');
-    if(!cookies.length)throw Error('NO_SCHOOL_SESSION_COOKIES');
     const accounts=path.join(state,'accounts');await privateDir(accounts);
-    const file=path.join(accounts,account+'.json'),temp=file+'.'+process.pid+'.tmp';
-    await fs.writeFile(temp,JSON.stringify({cookies,headers:{},user_agent:userAgent,imported_at:new Date().toISOString()}),{mode:0o600,flag:'wx'});
-    await fs.rename(temp,file);
-    report({ok:true,account,cookie_count:cookies.length,user_agent_preserved:true,pages,live_identity_verified:false,next:'Validate the current identity/business response; saved cookies alone do not prove successful login.'});
+    const captured=await captureAccount(c,path.join(accounts,account+'.json'),targetInfos);
+    report({ok:true,account,...captured,user_agent_preserved:true,pages,live_identity_verified:false,next:'Validate the current identity/business response; saved cookies alone do not prove successful login.'});
   }finally{c.close();}
 }
-if(path.resolve(process.argv[1]||'')===fileURLToPath(import.meta.url)){
+if(process.argv[1]&&await fs.realpath(process.argv[1]).catch(()=>null)===fileURLToPath(import.meta.url)){
   try{await main();}catch(error){report({ok:false,code:/^[A-Z_]+$/.test(error.message)?error.message:'BROWSER_SESSION_ERROR'});process.exitCode=1;}
 }

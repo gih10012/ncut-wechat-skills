@@ -137,6 +137,20 @@
       ],
       "auth": "Observed jwxt pageHome -> POST /jwxtpt/v1/loginController/jwToken -> jwxtbk/Logon.do",
       "evidence_status": "observed_login_handoff"
+    },
+    {
+      "id": "weiban",
+      "aliases": [
+        "安全微伴",
+        "安全教育",
+        "平安毓秀"
+      ],
+      "entry": "https://weiban.mycourse.cn/",
+      "origins": [
+        "https://weiban.mycourse.cn"
+      ],
+      "auth": "Independent student-number login or bound WeChat; exact-origin X-Token plus user and tenant IDs",
+      "evidence_status": "runtime_verified"
     }
   ]
 }

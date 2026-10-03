@@ -236,6 +236,11 @@ def main():
     q = sub.add_parser('favorite'); q.add_argument('operation',choices=['show','set','verify']); q.add_argument('--account',required=True); q.add_argument('--query',required=True); q.add_argument('--value',choices=['yes','no']); q.add_argument('--allow-write',action='store_true')
     q = sub.add_parser('timetable'); q.add_argument('--account', required=True); q.add_argument('--term'); q.add_argument('--week', choices=['all','current'], default='all'); q.add_argument('--date'); q.add_argument('--output')
     q = sub.add_parser('grades'); q.add_argument('--account', required=True); q.add_argument('--term', help='Exact semester ID from the current school options; default: latest term with grades'); q.add_argument('--output')
+    q = sub.add_parser('safety'); sq = q.add_subparsers(dest='operation', required=True)
+    a = sq.add_parser('status'); a.add_argument('--account', required=True); a.add_argument('--all', action='store_true', help='Include prior open make-up projects')
+    a = sq.add_parser('courses'); a.add_argument('--account', required=True); a.add_argument('--project', required=True)
+    a = sq.add_parser('course'); a.add_argument('action', choices=['start','finish']); a.add_argument('--account', required=True); a.add_argument('--project', required=True); a.add_argument('--course', required=True)
+    a.add_argument('--reviewed', action='store_true', help='Caller has actually reviewed the course material before completion')
     q = sub.add_parser('classrooms'); q.add_argument('--account', required=True); q.add_argument('--date', required=True); q.add_argument('--start', required=True); q.add_argument('--end', required=True)
     q.add_argument('--campus', default='校本部'); q.add_argument('--query', default=''); q.add_argument('--limit', type=int, default=8); q.add_argument('--output')
     q = sub.add_parser('task'); tq=q.add_subparsers(dest='operation',required=True)
@@ -271,6 +276,9 @@ def main():
     if args.cmd == 'grades':
         from grades import grades
         grades(args); return
+    if args.cmd == 'safety':
+        import safety
+        getattr(safety, args.operation)(args); return
     if args.cmd == 'task':
         from task_drafts import main as task_main
         task_main(args); return

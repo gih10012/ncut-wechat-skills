@@ -28,6 +28,8 @@ open 使用独立的私有 Chrome profile；不会修改用户平常的默认浏
 
 其他本人浏览器状态可通过 `session import --account me --file /私有目录/state.json` 导入。兼容 Playwright cookies；可选 `headers` 为精确 origin 对认证/CSRF头的映射，`user_agent` 应保留该会话真实浏览器值。localStorage/sessionStorage token 只有在请求已证明其用法后才映射到 header，不能猜 token 字段。临时导入文件需 0600，用完删除自身临时文件。
 
+2026-10-03修复：专用浏览器 `capture` 更新Cookie/User-Agent时保留账号原有的认证头、service_data及其他私有元数据；原实现重写空headers会丢失安全微伴等独立令牌。安装路径为symlink时，Node入口也按真实路径识别，避免直接运行已安装脚本却无输出。安全微伴的独立令牌捕获和真实任务验证已接入，同日原生登录成功后真实读取三期任务，新分支已运行验收，见[安全微伴契约](../capabilities/weiban/safety-status.md)。
+
 **预约平台特例已实测**：workflow 的同一 Cookie 在原浏览器 User-Agent 下 e=OK，换用通用脚本 User-Agent 则 e=UN_AUTH。不要因为这个异常反复登录；保留 user_agent 就能直接 HTTP 调用。
 
 HTTP 客户端不自动跟随任何重定向，防止 bearer/请求体错误转发。CAS ticket 流转在登录浏览器中完成，然后 capture。服务若轮换 Cookie/token，恢复该目标页面并重新捕获；私有响应不存进知识库。

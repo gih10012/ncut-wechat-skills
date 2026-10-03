@@ -46,6 +46,23 @@ class LoginTests(unittest.TestCase):
         with patch.object(ncut, 'fetch', return_value=({'ok': True}, raw)):
             self.assertEqual(login.check('me', 'jwxt')['code'], 'AUTH_REQUIRED')
 
+    def test_safety_requires_its_own_token_and_identity(self):
+        ncut.private_write(ncut.account_path('me'), '{}')
+        with patch.object(ncut, 'fetch') as fetch:
+            self.assertEqual(login.check('me', 'weiban')['code'], 'AUTH_REQUIRED')
+            fetch.assert_not_called()
+
+    def test_safety_login_is_verified_by_the_live_task_response(self):
+        state = {'headers': {'https://weiban.mycourse.cn': {'X-Token': 'synthetic'}},
+                 'service_data': {'weiban': {'userId': 'owner', 'tenantCode': 'school'}}}
+        ncut.private_write(ncut.account_path('me'), json.dumps(state))
+        with patch('safety._post', return_value=({'ok': True}, {'studyTaskList': []})):
+            self.assertEqual(login.check('me', 'weiban')['code'], 'LOGIN_READY')
+        with patch('safety._post', return_value=({'ok': True}, {})):
+            self.assertEqual(login.check('me', 'weiban')['code'], 'LOGIN_RESPONSE_UNVERIFIED')
+        with patch('safety._post', return_value=({'ok': False, 'code': 'AUTH_REQUIRED'}, None)):
+            self.assertEqual(login.check('me', 'weiban')['code'], 'AUTH_REQUIRED')
+
     def test_status_reports_live_expired_qr_for_persisted_service(self):
         path = ncut.STATE / 'login-pending/me.json'
         ncut.private_write(path, json.dumps({'service': 'workflow'}))
