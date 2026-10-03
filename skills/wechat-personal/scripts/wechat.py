@@ -180,6 +180,11 @@ if __name__ == '__main__':
         elif len(sys.argv)>1 and sys.argv[1]=='knowledge': knowledge(sys.argv[2:])
         elif len(sys.argv)>1 and sys.argv[1]=='wecom':
             raise SystemExit(wecom(sys.argv[2:]))
+        elif len(sys.argv)>1 and sys.argv[1]=='speech':
+            from speech import main
+            result = main(sys.argv[2:])
+            access.emit(result)
+            raise SystemExit(0 if result['ok'] else 1)
         elif len(sys.argv)>1 and sys.argv[1]=='desktop':
             from desktop import main
             access.emit(main(sys.argv[2:]))

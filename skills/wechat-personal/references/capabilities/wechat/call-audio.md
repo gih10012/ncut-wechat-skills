@@ -24,6 +24,8 @@ audio recover --request-id 原ID
 
 输入限PCM WAV、单/双声道、5分钟/32 MiB；其他格式先转换。生成音频不证明通知送达。命令需本机PulseAudio兼容服务、pactl与paplay，本机PipeWire已实测。企微skill桥接沿用播放进程自身有界生命周期，避免普通读取180秒超时强制终止。
 
+需要文字通知时先用[语音生成命令](speech-synthesis.md)得到归一化PCM WAV，再用对应原通话`call play`；无需复用旧私有试验脚本。主号手机已确认收到普通企微CLI播出的旧eSpeak通知，但反馈声音不自然、过响；新的晓晓语音已生成并限幅，WAV样例由本人确认正常；第二次电话未接听，本人要求不再拨号。不把文件试听或本地无削波推定为新的电话送达。
+
 输入绑定精确PID、启动时间、流索引/客户端/序号，临时转入独立虚拟输入；完成后恢复原设备并移除自建模块，不改默认输入/输出。流断开、静音、身份变化或手动改路由时停止，不碰替换流。同ID同音频/目标只返回旧结果；改内容/目标拒绝，未知状态不换ID重播。强制退出后先查原ID，再recover清理，清理不播放。记录在私有`~/.local/state/wechat-audio/`，不需常驻接收服务。
 
 `playback_finished`只表示本地播放器完成，音频原语的`remote_delivery_verified`和`call_connection_verified`保持false；`call play`另用`call_connection_verified_before_playback`表示真实UI检查，agent按独立证据说明范围。2026-10-03两端普通call-play命令的接收输出录制匹配0.87/0.95，两边历史00:22，正常挂断与原路由/默认设备/临时模块清理通过，证据私存。不能把私聊互测扩大为群连接或其他参与人已验收。
