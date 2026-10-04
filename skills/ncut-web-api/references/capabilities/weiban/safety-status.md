@@ -15,6 +15,8 @@ note: "Read-only status CLI is verified. Native course learning and both exam su
 
 输入来自登录响应中实际返回的 `tenantCode`、`userId`，以及任务列表返回的 `userProjectId`；不猜项目 ID、考试计划或学期。`--all` 同时列出仍开放补学的往期项目，默认只返回当前开放项目。
 
+2026-10-04往期补学只读核对：同一项目可能同时返回仍开放的补考和已过期的原考试，两类条目的userExamPlanId可以相同，名称和开放状态不同；不能只按ID去重或选取第一条。办理时以实际项目、考试名称、is_makeup、available和原生列表当前可进入的项目共同核对，截止时间取该条响应。不同学期即使分配相同resourceId，也有各自userCourseId和项目完成数，不能用另一学期已完成推断本期已完成。
+
 认证使用 `https://weiban.mycourse.cn` 精确 origin 下的 `X-Token`。私有账号状态还保存该 token 对应的用户和学校 ID；不保存学号、默认密码、验证码或课程正文。接口返回 `detailCode=-105` 才按会话失效处理；其他非成功业务码保留业务原因。HTTP701是学习行为限制，停止请求并遵循原生页面说明，不重新登录循环重试。
 
 2026-10-03登录续接补齐：`login --service 安全微伴` / `login finish --service 安全微伴` 已加入源码和离线回归。专用Chrome只从该精确origin的 `localStorage.user` 取 `token/userId/tenantCode`，分别存到认证头和 `service_data.weiban`；不读取含记住密码的 `default`。捕获时保留其他服务认证头、service_data与私有元数据，不能用重写空headers的方式清掉既有身份。保存后须用 `listStudyTask.do` 的成功业务码和 `studyTaskList` 数组验证；同日通过原生登录页恢复本人身份，捕获后真实读取到三期学习任务；新增续接已获运行验收。
