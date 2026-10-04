@@ -3,8 +3,8 @@ id: safety-education-courses
 service: weiban
 keywords: ["安全微伴课程", "安全教育学习", "安全微课", "安全课程完成", "课程材料"]
 status: runtime_verified
-evidence: "2026-10-03 owner's assigned autumn project: category/course reads and native SDK completion independently read back; standalone course listing/start verified; completion now uses native pages and read-only verification."
-runtime_verified_at: "2026-10-03T19:16:00+08:00"
+evidence: "2026-10-04 all assigned autumn courses completed in native pages with real interactions, course quizzes and videos; independent status readback confirmed every course completed. Listing/start and read-only verify CLI remain verified."
+runtime_verified_at: "2026-10-04T23:05:00+08:00"
 transport: http
 command: ["safety", "courses", "--account", "me", "--project", "USER_PROJECT_ID"]
 requests: [{"method":"POST","path":"/pharos/usercourse/listCategory.do","effect":"read","expect":"json","auth":"X-Token"},{"method":"POST","path":"/pharos/usercourse/listCourse.do","effect":"read","expect":"json","auth":"X-Token"},{"method":"POST","path":"/pharos/usercourse/study.do","effect":"write","expect":"json","auth":"X-Token"},{"method":"POST","path":"/pharos/usercourse/getCourseUrl.do","effect":"read","expect":"json","auth":"X-Token"}]
@@ -30,4 +30,6 @@ start检查本人归属和source=1，POST `study.do`（远端登记开始学习�
 
 2026-10-03已用原生课程页完成互动与两道课后题，独立showProgress读回增加一门；这与先前单独SDK上报成功却读回未完成的条目不同。为避免误用，已撤除CLI直接完成上报；`course verify`只有读操作，返回finished和COURSE_FINISHED/COURSE_NOT_FINISHED。HTTP701停止请求并按原生页面等待解锁、重新进入；不是AUTH_REQUIRED。最终以showProgress.do核对课程与两场考核均完成、项目100%。
 
-个人材料、题目、截图和成绩只放本机私有状态。临时UI或OCR用于真实办理和内容读取，不建立新的爬虫项目/后台服务。考试契约单独验证，课程完成不代表考试已通过。
+2026-10-04已完成当前秋季整期课程的原生办理，覆盖图片正文、案例互动、动态课后题、实际播放的视频及VR电器查找；独立status读回课程全部完成。等待原生控件开放，遇题目先作答，不能因下一页按钮可见就漏答；实际视频未结束不前进。长时间中断后若认证失效，通过原生登录恢复并捕获，再重新进入未确认完成的课程，不复用旧材料票据强行上报。
+
+个人材料、题目、截图和成绩只放本机私有状态。临时UI或OCR用于真实办理和内容读取，不建立新的爬虫项目/后台服务。考试原生办理及最终读回已单独实测，见[状态契约](safety-status.md)；课程完成不代表考试已通过。

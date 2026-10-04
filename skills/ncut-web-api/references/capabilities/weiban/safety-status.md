@@ -3,12 +3,12 @@ id: safety-education-status
 service: weiban
 keywords: ["安全微伴", "安全教育", "平安毓秀", "安全课程", "反诈考试", "补学"]
 status: runtime_verified
-evidence: "2026-09-21 used the owner's account to read three assigned projects, exact course/exam counts, scores and deadlines"
-runtime_verified_at: "2026-09-21T23:08:00+08:00"
+evidence: "2026-10-04 independently read back the assigned autumn project's completed course/exam counts, passing exam scores and 100 percent progress after native UI learning and exam submission"
+runtime_verified_at: "2026-10-04T23:05:00+08:00"
 transport: http
 command: ["safety", "status", "--account", "me", "--all"]
 requests: [{"method":"POST","path":"/pharos/index/listStudyTask.do","effect":"read","expect":"json","auth":"X-Token"},{"method":"POST","path":"/pharos/project/showProgress.do","effect":"read","expect":"json","auth":"X-Token"},{"method":"POST","path":"/pharos/exam/listPlan.do","effect":"read","expect":"json","auth":"X-Token"},{"method":"POST","path":"/pharos/usercourse/listCategory.do","effect":"read","expect":"json","auth":"X-Token"}]
-note: "Read-only status is verified. Progress and exam writes have not been implemented or tested; future owner-authorized tasks use local discovery."
+note: "Read-only status CLI is verified. Native course learning and both exam submissions are runtime verified; no standalone exam write CLI is implemented."
 ---
 
 # 安全微伴完成状态
@@ -21,7 +21,9 @@ note: "Read-only status is verified. Progress and exam writes have not been impl
 
 依次只读调用任务列表、项目进度和考试计划。最终映射项目名称、起止日期、总进度、必修课程已完成数/总数，以及计入考核的考试完成数、成绩、剩余次数和合格分。业务成功需同时满足 HTTP 成功、JSON `code=0` 和预期数据结构。
 
-这些请求没有远端写入。当前契约只实现状态查询；课程列表/开始与有限完成上报见独立[课程契约](safety-courses.md)；试卷准备、答题和交卷仍待验收。这是技术范围记录，不是对本人后续任务的永久限制。后续请求按SKILL.md的本人代理授权和局部发现流程处理，不单凭站点提示停止辅助任务。
+这些状态请求没有远端写入。CLI契约只实现状态查询；课程列表/开始、原生学习及只读完成验证见独立[课程契约](safety-courses.md)。2026-10-04已在原生页面实测两场考试的进入、逐题选择、答题卡检查、交卷和成绩确认，独立状态查询验证计入考核的考试均完成、成绩达到合格分、项目进度100%且状态为已完成。没有独立考试写入CLI。这是技术范围记录，不是对本人后续任务的永久限制。
+
+考试从本人实际项目的在线考试列表进入，先核对考试名称和平台显示的题量、时长、合格分与剩余次数；不拼接旧试卷或计划参数。当前实测两场均20题，反诈30分钟、结课60分钟；后续以当次页面为准。通过原生题目选项、翻页和答题卡办理，交卷成功提示后还须用status读回课程完成数、计入考核的考试完成数及各场成绩。单个请求成功、已考次数增加或课程全部完成，都不能替代整期完成验收。题目、选择和个人结果只留本机私有状态，不发布题库。
 
 本次任务入口：[《北方工大人注意，不做影响毕业》](https://mp.weixin.qq.com/s/VyYBwmvXZ0MujoaWZuaR5g)，2026-10-03已读取文字层，说明秋季课程开放至10月31日，课程后需在线考试及防范电信网络诈骗专题考试，合格分80、最多3次。正文末尾落款为2025年9月，与正文所述2026年不一致；项目学期、开放期、实际合格分和剩余次数均以本人平台实时响应为准。文章提供的默认密码提示不证明该账号仍使用默认密码。
 
