@@ -11,12 +11,13 @@ note: "企微精确群语音选择窗打开/状态/防重、成员窗读取/取�
 
 # 企微群成员选择
 
-普通CLI可按精确群ID打开空的语音选择窗，读取/取消实际打开的成员选择窗，并勾选/取消勾选一个精确可见联系人；尚不能提交群邀请。联系人勾选的真实验收在建群选择窗完成，不等于群语音页提交验收。私聊通话按[私聊契约](private-call-control.md)调用，群整体按[通话契约](../wechat/voice-call.md)继续。保持电脑主号，不要求切小号；选中、邀请其他人须核对当前或事先授权。
+普通CLI可按精确群ID打开空的语音选择窗，读取/取消实际打开的成员选择窗，并勾选/取消勾选一个精确可见联系人；已接入一次性的完整名单核对提交入口，但非空群邀请尚未实测。联系人勾选的真实验收在建群选择窗完成，不等于群语音页提交验收。私聊通话按[私聊契约](private-call-control.md)调用，群整体按[通话契约](../wechat/voice-call.md)继续。保持电脑主号，不要求切小号；选中、邀请其他人须核对当前或事先授权。
 
 ```sh
 wecom call inspect --account me
 wecom call group-prepare --account me --chat 精确R群ID --request-id GROUP_PREPARE_ID
 wecom call status --request-id GROUP_PREPARE_ID
+wecom call group-invite --prepare-request-id GROUP_PREPARE_ID --member-id 精确已选ID --request-id GROUP_SUBMISSION_ID
 wecom call selector-cancel --account me --selector-token 本轮selector_token
 wecom call selector-select --account me --selector-token 本轮selector_token --member-id 精确原生用户ID --select
 wecom call selector-select --account me --selector-token 本轮selector_token --member-id 精确原生用户ID --deselect
@@ -32,7 +33,7 @@ wecom call selector-select --account me --selector-token 本轮selector_token --
 
 `visible_member_states_verified/member_identity_verified`仅证明返回的可见个人行，`selected_visible_member_ids`仅是其中已勾选的ID。`full_member_list_verified/selection_verified/call_connection_verified`仍false：可见行不覆盖滚动外成员，不代表完整已选列表或已提交邀请。语音目的另按上述原开页记录核验，不能从这些成员字段推断。
 
-经典选择窗另返回`native_selected_member_ids/native_selected_member_count/native_selected_member_model_verified`。这在已核验UI线程读取客户端最终选择getter实际使用的两组有界原生向量，保留补充ID的去重合并语义，并核对成员类型、精确UID、前后字段不变及可见复选框状态一致；不是根据屏幕行数推算。模型不可核验时ID/人数为null、verified为false，区别于核验通过的空列表`[]/0`。建群`CSelectUserFrame2`布局不同，不能套用经典窗偏移，不返回该模型。
+经典选择窗另返回`native_selected_member_ids/native_selected_member_count/native_selected_member_model_verified`。这在已核验UI线程读取正常确认处理实际复制的实时BuddyList已选向量和补充UID向量；核对frame/common-view/buddy-list/delegate关联，非空非个人选择向量拒绝。frame最终结果缓冲只有确认后才生成，不能当作提交前名单；旧source标记不接受。实时读取保留补充ID的去重合并语义，并核对成员类型、精确UID、前后字段不变及可见复选框状态一致；不是根据屏幕行数推算。模型不可核验时ID/人数为null、verified为false，区别于核验通过的空列表`[]/0`。建群`CSelectUserFrame2`布局不同，不能套用经典窗偏移，不返回该模型。
 
 2026-10-05普通安装CLI真实空语音页返回核验通过的`[]/0`，正常取消、开页/结束状态、防重和群历史不变通过；132项CLI测试、原生编译及30个source/wheel/installed文件一致。离线C模型测试覆盖滚动外成员、补充ID合并、未知类型/重复身份、界限和读取变化，不能替代非空真实客户端验收。因此模型verified仅表示当前快照通过结构/身份核对，`selection_verified`仍false；非空及滚动外真实选择、语音页勾选和邀请提交仍待分别验收。
 
@@ -51,3 +52,9 @@ wecom call selector-select --account me --selector-token 本轮selector_token --
 普通安装`group-prepare`另完成精确群开页、原生双字符串绑定、开页状态、同ID防重、改群冲突、正常取消及结束后防重；独立群历史逐条相同。129项CLI测试、原生编译及29个source/wheel/installed文件一致通过。
 
 仍缺群语音选择窗内的勾选实测、非空及屏外完整选择实测、指定成员邀请提交、群连接判断及对端收音。不能以建群页勾选或私聊播音声称完整群通话已完成。
+
+`group-invite`中的`--member-id`可重复，必须列出实时模型的全部已选个人ID，含屏外成员；空集合、重复、漏人、多选、本人ID或未经原语音日志绑定的窗口均拒绝。`native_confirmation_control_verified/confirmation_descriptor`只表示正式“确定”控件与typed common view关联，另核对enabled。原生预检和提交都在UI线程重验完整名单、原窗口/回调/账号/进程和控件，预检不会因通用只读返回而跳过这些校验。
+
+提交前保存`group_submission_unknown`日志及原准备请求的`submission_request_id`。同ID只读重放，改内容冲突，换ID也不能再次确认同一准备页。正常按钮返回、页面消失或出现通话窗均不能单独证明精确群邀请，`invitation_performed=null/call_connection_verified=false`保持；`status`读当前状态仍保留未知，不播放群音频。明确未进入原生动作才记`failed_no_invitation`。需要独立核对原结果，已结束时`resolve --ended`仅清本地未决；不能自行改ID或转GUI重发。
+
+2026-10-05模型纠正和提交入口（142项CLI测试、30个source/wheel/installed文件一致）：静态确认原frame结果向量只在确认时复制，已替换为实时选择模型，新增完整名单与一次提交守卫。真实空页确认实时模型、common view/正式确定按钮关联和禁用状态；原生预检及提交模式均拒绝非空期望集合，动作未进入，没有邀请。此验收仅证明空页拒绝，不证明非空群提交；成功提交、群绑定/连接/收音仍待实测，保持主号登录，无小号登录要求。
