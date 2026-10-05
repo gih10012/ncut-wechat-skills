@@ -23,7 +23,7 @@ wecom call play --request-id CALL_ID --file /路径/通知.wav --audio-request-i
 wecom call hangup --request-id CALL_ID
 ```
 
-发起目标为`S:ID_ID`私聊ID，读取接受任意会话的规则保持，通话目标没有授权白名单。`start`须有对应精确会话的正常附着view；返回`ONE_CACHED_ATTACHED_CHAT_VIEW_REQUIRED_OPEN_TARGET_IN_CLIENT`时，沿用已授权范围用computer-use打开该精确会话、核对名称/后缀，再做`preflight --chat`。不能改传同名的其他聊天。当前群选择窗可由普通CLI完整读取、正常取消，按[企微成员选择契约](group-call-selection.md)执行；精确成员选择/群邀请仍未实现。选择窗在`inspect.member_selectors`单独返回，不视为来电或连接；打开时拨号、接听、目标预检及resolve拒绝，先核对本轮令牌正常取消。
+发起目标为`S:ID_ID`私聊ID，读取接受任意会话的规则保持，通话目标没有授权白名单。`start`须有对应精确会话的正常附着view；返回`ONE_CACHED_ATTACHED_CHAT_VIEW_REQUIRED_OPEN_TARGET_IN_CLIENT`时，沿用已授权范围用computer-use打开该精确会话、核对名称/后缀，再做`preflight --chat`。不能改传同名的其他聊天。普通CLI可读取/取消成员选择窗，并按精确可见联系人ID勾选/取消勾选，按[企微成员选择契约](group-call-selection.md)执行；勾选实测在建群页，群邀请尚未实现。普通及建群选择窗都在`inspect.member_selectors`单独返回，不视为来电或连接；打开时拨号、接听、目标预检及resolve拒绝，先核对本轮令牌正常取消。
 
 依赖本人已登录的官方5.0.11.6018独立Wine客户端，主程序与DuiLib/owl哈希、账号、进程创建时间、UI线程、控件类型和窗口均核对；版本变化拒绝，不复用旧偏移。首次本机编译需32位MinGW。原生助手只调用客户端正常UI handler或正式导出的DuiLib控件方法；小模块保留到客户端退出以避免回调卸载竞态。不是猜测原生VoIP引擎ABI，也不通过消息发送接口假造通话。
 
