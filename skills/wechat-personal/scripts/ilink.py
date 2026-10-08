@@ -445,6 +445,32 @@ def main(argv, access):
         (access.STATE / 'bots').chmod(0o700)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         root.chmod(0o700)
+        remote_path = root / 'remote.json'
+        if remote_path.exists() or remote_path.is_symlink():
+            from ilink_remote import run as remote_run
+            # Serialize local read cursors and media upload reservations without
+            # ever starting a second iLink poller alongside the cloud owner.
+            fd = os.open(root/'remote-command.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+            try:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    raise BotError('BOT_ACCOUNT_BUSY') from None
+                try:
+                    value = remote_run(args, access, root, read(access, remote_path))
+                except ValueError as exc:
+                    code = str(exc)
+                    raise BotError(code if code.startswith('BOT_') else 'BOT_REMOTE_INVALID_STATE') from None
+                except (OSError, KeyError, TypeError, AttributeError):
+                    raise BotError('BOT_REMOTE_INVALID_STATE') from None
+            finally:
+                os.close(fd)
+            if value is not None:
+                return value
+            if args.operation in ('login', 'finish'):
+                raise BotError('BOT_REMOTE_OWNER_MUST_REBIND_ON_AUTHORITY')
+            if args.operation == 'recovery' and args.renew:
+                raise BotError('BOT_REMOTE_RECOVERY_REQUIRES_AUTHORITY_BRIDGE')
         # Status is a local snapshot; downloads read immutable references. Both
         # remain usable while a bounded poll holds the mutation lock.
         if args.operation in ('download', 'status'):

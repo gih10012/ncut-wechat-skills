@@ -30,6 +30,7 @@ description: 复用本人微信、企业微信和ClawBot的消息、媒体、朋
 - 企微卡片转发与XML：`python3 "$WX" wecom forward --account me --chat '精确源chat_id' --message-id 123 --recipient '精确目标chat_id' --request-id '唯一ID'`。`wecom message-xml`按源会话/消息ID读取可编辑XML，`wecom send-xml --chat '精确目标chat_id' --xml '/私有路径/card.xml' --request-id '另一唯一ID'`发送自定义卡片。文章5、小程序33转发及各自修改标题/描述的XML已由普通CLI发送，被授权微信对应会话单次收到；身份/页面、中文/换行/emoji及防重通过。按[企微转发/XML契约](references/capabilities/wecom/forward-card.md)调用。文章缩略图显示正常，小程序原始缩略图为空，两端为占位图；完整小程序缩略图及点击尚待验收。
 - 企微图片导出：`python3 "$WX" wecom media export --account me --chat '精确chat_id' --message-id 123`，ID来自`wecom messages`。已实测外部微信type101 PNG及企微原生type14 PNG/JPEG完整缓存原图导出，输入/导出字节一致，按[企微原图契约](references/capabilities/wecom/media-export.md)直接调用；不是主动远端下载。原图未缓存时用computer-use在企微打开对应图片加载，再导出。外部type101 JPEG、其他图片格式及企微表情导出、完整小程序缩略图与点击仍待分别验收。
 - ClawBot／微信机器人新消息：`python3 "$WX" bot updates --account me --limit 20`，第三方 SDK 已验证扫码绑定及真实文字、文件、图片、语音入站。它读取本人发给机器人的消息，个人聊天仍用 native。仅认证失败才看 [机器人登录](references/workflows/clawbot.md)。
+- 账号私有目录存在 `remote.json` 时，ClawBot 的 status/updates/send 改走本人显式部署的独立 mesh 服务；updates 读持久归档，不开启本机第二个 iLink 接收器。网络断开不自动改成本地轮询或本地发送。见[远端模式](references/workflows/clawbot-remote.md)，它不改变普通安装默认无接收器的行为。
 - ClawBot历史与发送后读回：Linux微信4.1.13已验证`native messages --account me --chat '微信ClawBot' --limit 20`，同时包含本人入站与机器人回复，复用现有密钥。本地读回仅在用户要求验收或排查时可选使用；电脑微信离线不影响ClawBot经iLink独立收发，不因本地未读回阻断或判失败。会话名不唯一时先`native conversations --query ClawBot`选精确ID，详见[历史与读回](references/capabilities/clawbot/read-history.md)。此读取不消费`bot updates`游标。
 - ClawBot给本人发消息：`python3 "$WX" bot send --account me --text '消息文字' --request-id '本次唯一ID'`，已实测送达。本人已长期授权此通道读写；同一操作复用同一ID不会重发。仅向绑定本人发送，不是以个人微信身份给好友发消息；细节见[发送契约](references/capabilities/clawbot/send-text.md)。本机已配置[自动恢复](references/capabilities/clawbot/recover-context.md)：首次发送明确返回`-2`时，自动用个人微信CLI给ClawBot发一次刷新消息、读取精确的新入站后补发一次，不要求本人手动刷新。`bot status`只读上下文时间与配置；仅认证错误走机器人登录，桌面主号在线只用于需要时的刷新。普通iLink发送仍独立于桌面微信，超时/未知结果不自动重发。
 - ClawBot文件/图片：`bot send --file '/路径' --request-id '唯一ID'`，图片改用`--image`。已真实发送且本人确认文件能打开、图片显示正常；命中[媒体发送](references/capabilities/clawbot/send-media.md)直接调用。`bot updates`会私存媒体引用并给出`attachment_id`，可用`bot download --attachment-id '返回的ID'`下载；真实入站Excel、JPEG及语音已下载解密，Excel正文与图片已实际读取，语音仅确认SILK文件，转写未验收。使用updates的入站引用；出站附件引用回取曾失败。本人确认ClawBot手机端不支持自定义表情、仅支持emoji，公众号分享卡片通道亦未接通；个人身份GIF/卡片向文件传输助手的已验收能力不证明ClawBot富消息可用。详见[媒体契约](references/capabilities/clawbot/media.md)。
@@ -69,9 +70,9 @@ CLI 无法完成的任务，使用 `niri-computer-use` 操作现有微信窗口�
 
 业务会话在 `~/.local/state/wechat-personal/accounts/`，0700/0600；与学校 skill 共用标准库 HTTP/检索模块，两者一起安装。普通业务请求不依赖旧 wechatcopilot、加密卷、Android 容器或常驻服务。
 
-本人允许以后增加与主 skill 解耦的轻量常驻接收器，部署在服务器或本机；当前暂缓实现与部署，普通查询不启动或管理它。仅处理部署需求时读[独立服务说明](../../BACKGROUND-RECEIVER.md)。
+本人允许主 skill 解耦的轻量常驻接收器；2026-10-07 在个人助理项目中另行明确授权并部署了独立云端 mesh 接收器，只有绑定了私有 `remote.json` 的账号使用它。普通安装、查询不创建或管理接收器，不将该部署扩大至其他账号。仅处理部署需求时读[独立服务说明](../../BACKGROUND-RECEIVER.md)与[远端模式](references/workflows/clawbot-remote.md)。
 
-独立 Linux CLI 辅助服务已实际安装并启用自启动，以桌面 UID 加 CAP_SYS_PTRACE 运行，代码归 root 持有，普通命令读写已验收。本机 native 入口与限时 OneBot 适配优先复用安装的 CLI；没有安装时才保留旧入口，失败或超时绝不自动切换发送后端。安装、升级或继续开发时读[独立 CLI 接续](references/workflows/native-cli.md)。后台消息接收器仍暂缓。
+独立 Linux CLI 辅助服务已实际安装并启用自启动，以桌面 UID 加 CAP_SYS_PTRACE 运行，代码归 root 持有，普通命令读写已验收。本机 native 入口与限时 OneBot 适配优先复用安装的 CLI；没有安装时才保留旧入口，失败或超时绝不自动切换发送后端。安装、升级或继续开发时读[独立 CLI 接续](references/workflows/native-cli.md)。云端消息接收器属于单独部署的个人助理项目，不属于此 CLI 辅助服务。
 
 学校登录：`login --platform school --service 教务`（或预约），本人完成后 `login finish`；平台/服务保存在本机。`login --platform wechat` 默认检查现有本地读取，返回的 `NATIVE_READ_READY` 不证明客户端在线或远端登录有效；日常查询直接 native，不预查登录。确需本人扫码时使用显式 `--transport current-desktop`，只在登录任务需要时读 [认证入口](references/workflows/login.md)。企微已完成独立客户端登录及本地消息读取；后续开发与真实范围见[企微 CLI](references/workflows/wecom-cli.md)。
 
