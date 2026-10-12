@@ -5,6 +5,7 @@ keywords: ["图书馆", "文献", "论文", "免费文献", "全文下载", "数
 status: runtime_verified
 runtime_verified_at: "2026-10-12T21:09:00+08:00"
 transport: http
+workflow: references/workflows/library-original-pdfs.md
 command: ["request", "library", "--capability", "database-resources", "--path", "/db/api/newDbsList", "--query", "sw=<数据库名称>", "--query", "trialFlag=true", "--limit", "3"]
 requests: [{"method":"GET","path":"/db/api/newDbsList","effect":"read","expect":"json","required_fields":["code","data"]},{"method":"GET","path":"/db/cx/ipBlank","effect":"read","expect":"json","required_fields":["code","data"]}]
 evidence: "2026-10-12 official index.js getDbs -> GET api/newDbsList; campus intranet=true returned code=1000 and 93 parent entries. Installed generic request verified sw=IEEE and sw=知网 with code=1000 and matching rows."
@@ -56,4 +57,4 @@ note: "已验证学校数据库目录查询；sw填知网/IEEE等数据库名称
 
 ## 验收边界与副作用
 
-只读发现和目录查询；未创建读者账号、提交原文申请、验证出版商机构身份或下载具体论文。正式采购说明学校提供该资源，单篇是否含全文须在本人当前授权身份下确认。试用条目按真实截止日判断；不据首页列表中的过期试用条目宣称仍可用。
+本能力只读发现和学校目录查询；未创建读者账号、提交原文申请、验证付费出版商机构身份或学校授权全文下载。公开原刊PDF已有独立实测，见[原版PDF流程](../../workflows/library-original-pdfs.md)，不据此扩大本目录能力的学校付费权限验收。正式采购说明学校提供该资源，单篇是否含全文须在本人当前授权身份下确认。试用条目按真实截止日判断；不据首页列表中的过期试用条目宣称仍可用。
