@@ -54,6 +54,8 @@ python3 "$NCUT" task draft --account me --intent '验证羽毛球预约任务' -
 
 学校可能 23:00 后不可访问：按 Asia/Shanghai 记录失败时间，一次有超时的请求后区分网络、登录和权限问题；没有新证据不循环重试，也不猜恢复时间。只读 POST 按 `effect: read` 调用；真正写入须符合用户授权，核对目标和当前契约，非幂等失败先查结果。
 
+图书馆文献入口已记录：`https://lib.ncut.edu.cn/`的“毓秀搜索”和`https://lib.ncut.edu.cn/db/`数据库导航。2026-10-12实时目录确认知网期刊/硕博、万方学位、维普、IEEE、ACM、Elsevier、Springer、ProQuest等正式资源，数据库名称检索CLI已实测。`knowledge --query '图书馆文献'`复用[资源契约](references/capabilities/library/database-resources.md)；该能力只查询数据库目录，具体论文全文下载、校外登录和原文传递申请尚未验收，按目标数据库入口继续本人任务。全文取决于学校订购范围；校内用当前IP推荐链接，校外用详情页VPN入口。
+
 ## 子能力复用
 
 [services.json](references/services.json) 登记精确域名与身份；`capabilities/<service>/*.md` 保存可执行请求契约；确需多步才链接 `workflows/*.md`。按 [API 契约格式](references/api-contract.md) 记录请求、参数来源、认证、结果映射、业务成功和失败处理。业务流程不记录点哪、等几秒；登录 UI 细节留在认证脚本/文档，正常查询不加载。

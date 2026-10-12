@@ -97,6 +97,22 @@
       "evidence_status": "historical"
     },
     {
+      "id": "library",
+      "aliases": [
+        "图书馆",
+        "文献检索",
+        "论文下载",
+        "数据库导航"
+      ],
+      "entry": "https://lib.ncut.edu.cn/db/",
+      "origins": [
+        "https://lib.ncut.edu.cn"
+      ],
+      "auth": "Public database directory. Access links depend on campus IP or library SSO/VPN; publisher full-text entitlement must be verified separately.",
+      "evidence_status": "runtime_verified_public_directory",
+      "source": "2026-10-12: official /db/ frontend GET /db/api/newDbsList returned code=1000 and 93 parent entries; selected full-text databases marked 正式."
+    },
+    {
       "id": "ncut",
       "aliases": [
         "学校官网",
